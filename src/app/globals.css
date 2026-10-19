@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
+/* Morningside Memes palette: Columbia blue + deep navy, same as the main app. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3f6fa;
+  --foreground: #14213d;
+  --surface: #ffffff;
+  --muted: #5b6b85;
+  --subtle: #8a97ab;
+  --line: rgba(11, 45, 91, 0.1);
+  --grid: #e6ebf2;
+
+  /* Chart series. Validated for CVD/contrast against the surfaces above. */
+  --series-human: #2a78d6;
+  --series-ai: #eb6834;
+  --series-up: #2a78d6;
+  --series-down: #e34948;
+  --series-1: #2a78d6;
+
+  --danger: #c4302b;
+  --success: #0f7b3f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0f1a;
+    --foreground: #e8edf5;
+    --surface: #121a2a;
+    --muted: #a3b0c5;
+    --subtle: #7a879c;
+    --line: rgba(185, 217, 235, 0.12);
+    --grid: #1f2a3d;
+
+    --series-human: #3987e5;
+    --series-ai: #d95926;
+    --series-up: #3987e5;
+    --series-down: #e66767;
+    --series-1: #3987e5;
+
+    --danger: #f07070;
+    --success: #3ccf7a;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-human: var(--series-human);
+  --color-ai: var(--series-ai);
+  --color-up: var(--series-up);
+  --color-down: var(--series-down);
+  --color-columbia: #b9d9eb;
+  --color-navy: #0b2d5b;
+  --color-navy-deep: #071d3b;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recharts' default focus outline on the SVG wrapper is noisy. */
+.recharts-wrapper svg:focus,
+.recharts-surface:focus {
+  outline: none;
 }
