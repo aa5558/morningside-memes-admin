@@ -32,7 +32,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/">) {
         mainAppUrl={MAIN_APP_URL}
         signOutAction={signOut}
       />
-      <div className="lg:pl-60">
+      <div className="lg:pl-[264px]">
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import type { AuthorType } from "@/lib/admin-data";
 import { formatNumber } from "@/lib/format";
 
+const CARD_SHADOW = "shadow-[0_1px_2px_rgba(22,38,61,0.04),0_16px_36px_-24px_rgba(22,38,61,0.18)]";
+
 export function PageHeader({
   title,
   description,
@@ -13,10 +15,11 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 max-w-2xl text-sm text-muted">{description}</p>}
+        <p className="eyebrow">admin console</p>
+        <h1 className="display mt-1.5 text-4xl text-ink sm:text-5xl">{title}</h1>
+        {description && <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -39,12 +42,12 @@ export function Card({
   bodyClassName?: string;
 }) {
   return (
-    <section className={`min-w-0 rounded-xl border border-line bg-surface shadow-[0_1px_2px_rgba(11,45,91,0.04)] ${className}`}>
+    <section className={`min-w-0 rounded-[26px] border border-line bg-surface ${CARD_SHADOW} ${className}`}>
       {(title || action) && (
-        <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-3.5">
+        <header className="flex items-start justify-between gap-3 px-5 pb-1 pt-5">
           <div>
-            {title && <h2 className="text-sm font-semibold">{title}</h2>}
-            {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
+            {title && <h2 className="display text-lg text-ink">{title}</h2>}
+            {description && <p className="mt-0.5 text-xs text-subtle">{description}</p>}
           </div>
           {action}
         </header>
@@ -65,32 +68,34 @@ export function StatCard({
   hint?: ReactNode;
   accent?: "human" | "ai" | "up" | "down";
 }) {
-  const bar = {
+  const dot = {
     human: "bg-human",
     ai: "bg-ai",
     up: "bg-up",
     down: "bg-down",
   } as const;
   return (
-    <div className="relative overflow-hidden rounded-xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(11,45,91,0.04)]">
-      {accent && <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${bar[accent]}`} />}
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-1.5 text-2xl font-semibold tracking-tight">
-        {typeof value === "number" ? formatNumber(value) : value}
+    <div className={`relative flex min-w-0 flex-col justify-between gap-3 overflow-hidden rounded-[24px] border border-line bg-surface p-4 ${CARD_SHADOW}`}>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+        {accent && <span aria-hidden className={`h-2 w-2 rounded-full ${dot[accent]}`} />}
+        {label}
       </p>
-      {hint && <p className="mt-1 text-xs text-subtle">{hint}</p>}
+      <div>
+        <p className="display text-[2rem] text-ink">{typeof value === "number" ? formatNumber(value) : value}</p>
+        {hint && <p className="mt-1 text-xs text-subtle">{hint}</p>}
+      </div>
     </div>
   );
 }
 
 export function AuthorBadge({ type }: { type: AuthorType }) {
   return type === "human" ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-human/12 px-2 py-0.5 text-[11px] font-semibold text-human">
+    <span className="inline-flex items-center gap-1 rounded-full bg-powder px-2 py-0.5 text-[11px] font-semibold text-human-ink">
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-human" />
       Human
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-ai/12 px-2 py-0.5 text-[11px] font-semibold text-ai">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#ffe8f3] px-2 py-0.5 text-[11px] font-semibold text-ai-ink">
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ai" />
       Gemini
     </span>
@@ -99,9 +104,9 @@ export function AuthorBadge({ type }: { type: AuthorType }) {
 
 export function VoteBadge({ vote }: { vote: 1 | -1 }) {
   return vote === 1 ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-up/12 px-2 py-0.5 text-xs font-semibold text-up">▲ Upvote</span>
+    <span className="inline-flex items-center gap-1 rounded-full bg-powder px-2 py-0.5 text-xs font-semibold text-human-ink">▲ Upvote</span>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-down/12 px-2 py-0.5 text-xs font-semibold text-down">▼ Downvote</span>
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#ffede6] px-2 py-0.5 text-xs font-semibold text-down-ink">▼ Downvote</span>
   );
 }
 
@@ -122,7 +127,7 @@ export function Score({ score, up, down }: { score: number; up?: number; down?: 
 export function Thumb({ src, alt, className = "h-12 w-12" }: { src: string; alt: string; className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} loading="lazy" className={`shrink-0 rounded-lg bg-black/5 object-cover ${className}`} />
+    <img src={src} alt={alt} loading="lazy" className={`shrink-0 rounded-[14px] bg-powder object-cover ${className}`} />
   );
 }
 
@@ -132,7 +137,7 @@ export function Avatar({ src, name, size = 32 }: { src: string | null; name: str
     // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt="" style={style} className="shrink-0 rounded-full object-cover" />
   ) : (
-    <span style={style} className="flex shrink-0 items-center justify-center rounded-full bg-columbia text-xs font-bold text-navy">
+    <span style={style} className="orb flex shrink-0 items-center justify-center rounded-full text-xs font-bold text-ink">
       {name.slice(0, 1).toUpperCase()}
     </span>
   );
@@ -140,8 +145,8 @@ export function Avatar({ src, name, size = 32 }: { src: string | null; name: str
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line px-6 py-10 text-center">
-      <p className="text-sm font-medium">{title}</p>
+    <div className="flex flex-col items-center justify-center rounded-[22px] bg-background px-6 py-10 text-center ring-1 ring-line">
+      <p className="display text-base text-ink">{title}</p>
       {children && <p className="mt-1 max-w-sm text-xs text-muted">{children}</p>}
     </div>
   );
@@ -161,7 +166,6 @@ export function Pagination({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
-  const btn = "rounded-lg border border-line px-3 py-1.5 text-sm font-medium";
   return (
     <div className="flex items-center justify-between gap-3 pt-4 text-sm text-muted">
       <span className="tabular">
@@ -169,18 +173,18 @@ export function Pagination({
       </span>
       <div className="flex gap-2">
         {page > 1 ? (
-          <Link href={href(page - 1)} className={`${btn} hover:bg-black/5 dark:hover:bg-white/5`}>
+          <Link href={href(page - 1)} className="btn btn-ghost btn-sm">
             Previous
           </Link>
         ) : (
-          <span className={`${btn} opacity-40`}>Previous</span>
+          <span className="btn btn-ghost btn-sm opacity-40">Previous</span>
         )}
         {page < pages ? (
-          <Link href={href(page + 1)} className={`${btn} hover:bg-black/5 dark:hover:bg-white/5`}>
+          <Link href={href(page + 1)} className="btn btn-ghost btn-sm">
             Next
           </Link>
         ) : (
-          <span className={`${btn} opacity-40`}>Next</span>
+          <span className="btn btn-ghost btn-sm opacity-40">Next</span>
         )}
       </div>
     </div>
@@ -191,13 +195,13 @@ export function Pagination({
 // and works without JavaScript.
 export function FilterBar({ children, resetHref }: { children: ReactNode; resetHref: string }) {
   return (
-    <form method="get" className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-3">
+    <form method="get" className={`mb-6 flex flex-wrap items-end gap-3 rounded-[26px] border border-line bg-surface p-4 ${CARD_SHADOW}`}>
       {children}
       <div className="flex gap-2">
-        <button type="submit" className="rounded-lg bg-navy px-4 py-2 text-sm font-medium text-white hover:bg-[#123d77] dark:bg-columbia dark:text-navy">
+        <button type="submit" className="btn btn-primary">
           Apply
         </button>
-        <Link href={resetHref} className="rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5">
+        <Link href={resetHref} className="btn btn-ghost">
           Reset
         </Link>
       </div>
@@ -206,12 +210,12 @@ export function FilterBar({ children, resetHref }: { children: ReactNode; resetH
 }
 
 export const fieldClass =
-  "rounded-lg border border-line bg-background px-3 py-2 text-sm outline-none focus:border-human focus:ring-2 focus:ring-human/20";
+  "rounded-full border border-[rgba(22,38,61,0.12)] bg-white px-4 py-2 text-sm text-ink outline-none transition placeholder:text-subtle focus:border-sky focus:ring-4 focus:ring-sky/25";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted">
-      {label}
+    <label className="flex min-w-0 flex-col gap-1.5 text-xs font-semibold text-muted">
+      <span className="px-1">{label}</span>
       {children}
     </label>
   );
@@ -219,15 +223,15 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export function RangeTabs({ days, base }: { days: number; base: string }) {
   return (
-    <div role="tablist" aria-label="Date range" className="inline-flex rounded-lg border border-line bg-surface p-0.5 text-sm">
+    <div role="tablist" aria-label="Date range" className="inline-flex rounded-full bg-powder p-1 text-sm">
       {[7, 30, 90].map((d) => (
         <Link
           key={d}
           role="tab"
           aria-selected={d === days}
           href={`${base}?days=${d}`}
-          className={`rounded-md px-3 py-1.5 font-medium ${
-            d === days ? "bg-navy text-white dark:bg-columbia dark:text-navy" : "text-muted hover:text-foreground"
+          className={`rounded-full px-3.5 py-1.5 font-semibold transition ${
+            d === days ? "bg-white text-ink shadow-[0_2px_8px_-2px_rgba(22,38,61,0.2)]" : "text-muted hover:text-ink"
           }`}
         >
           {d}d

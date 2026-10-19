@@ -25,7 +25,7 @@ function Message({ result }: { result: ActionResult | null }) {
 }
 
 const smallBtn =
-  "rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5";
+  "rounded-full px-2.5 py-1 text-xs font-semibold text-muted transition hover:bg-powder hover:text-ink";
 
 export function CaptionActions({
   captionId,
@@ -64,7 +64,7 @@ export function CaptionActions({
           maxLength={300}
           rows={2}
           autoFocus
-          className="w-full rounded-lg border border-line bg-background px-3 py-2 text-sm outline-none focus:border-human"
+          className="w-full rounded-[18px] border border-[rgba(22,38,61,0.12)] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-sky focus:ring-4 focus:ring-sky/25"
         />
         {votes > 0 && (
           <p className="mt-1 text-xs text-ai">
@@ -73,7 +73,7 @@ export function CaptionActions({
           </p>
         )}
         <div className="mt-2 flex items-center gap-2">
-          <button type="submit" disabled={pending} className="rounded-md bg-navy px-3 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-columbia dark:text-navy">
+          <button type="submit" disabled={pending} className="btn btn-primary btn-sm">
             {pending ? "Saving…" : "Save"}
           </button>
           <button
@@ -108,7 +108,7 @@ export function CaptionActions({
           title="Delete this caption?"
           body={
             <>
-              <p className="rounded-lg bg-black/4 p-2 italic dark:bg-white/5">“{text}”</p>
+              <p className="rounded-[14px] bg-background p-3 italic ring-1 ring-line">“{text}”</p>
               <p className="mt-2">
                 {votes > 0
                   ? `Its ${votes} vote${votes === 1 ? "" : "s"} will be removed with it. `
@@ -154,13 +154,13 @@ export function ContextEditor({ generationId, context }: { generationId: string;
         maxLength={200}
         rows={2}
         placeholder="No context"
-        className="mt-1 w-full rounded-lg border border-line bg-background px-3 py-2 text-sm outline-none focus:border-human"
+        className="mt-1 w-full rounded-[18px] border border-[rgba(22,38,61,0.12)] bg-white px-4 py-2.5 text-sm outline-none transition focus:border-sky focus:ring-4 focus:ring-sky/25"
       />
       <div className="mt-1 flex items-center gap-2">
         <button
           type="submit"
           disabled={!dirty || pending}
-          className="rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-columbia dark:text-navy"
+          className="btn btn-primary btn-sm"
         >
           {pending ? "Saving…" : "Save context"}
         </button>
@@ -180,7 +180,7 @@ export function GenerateCaptions({ generationId }: { generationId: string }) {
         type="button"
         disabled={pending}
         onClick={() => start(async () => setResult(await generateMoreCaptions(generationId)))}
-        className="inline-flex items-center gap-2 rounded-lg border border-ai/40 bg-ai/8 px-3 py-1.5 text-sm font-medium text-ai hover:bg-ai/12 disabled:opacity-60"
+        className="btn btn-ice btn-sm"
       >
         <span aria-hidden>✨</span>
         {pending ? "Asking Gemini…" : "Generate more AI captions"}
@@ -196,7 +196,7 @@ export function DeletePost({ generationId, captions, votes }: { generationId: st
     <div>
       <ConfirmButton
         label="Delete post"
-        className="rounded-lg border border-danger/40 px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/8"
+        className="btn btn-ghost !text-danger"
         title="Delete this entire post?"
         body={
           <p>

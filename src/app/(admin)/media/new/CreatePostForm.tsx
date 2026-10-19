@@ -9,7 +9,7 @@ export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string;
 
   return (
     <form action={action} className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <label className="flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-line bg-background text-center text-sm text-muted hover:border-human">
+      <label className="flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[26px] border-2 border-dashed border-ice bg-background transition hover:border-sky hover:bg-powder/50 text-center text-sm text-muted hover:border-human">
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={preview} alt="Selected photo preview" className="h-full w-full object-cover" />
@@ -41,7 +41,7 @@ export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string;
           <legend className="mb-2 text-xs font-medium text-muted">Caption voice</legend>
           <div className="grid gap-2">
             {vibes.map((v, i) => (
-              <label key={v.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm has-[:checked]:border-human has-[:checked]:bg-human/8">
+              <label key={v.value} className="flex cursor-pointer items-center gap-2 rounded-full bg-background px-3 py-2.5 text-sm font-medium ring-1 ring-line transition hover:ring-sky has-[:checked]:bg-ice has-[:checked]:ring-2 has-[:checked]:ring-sky">
                 <input type="radio" name="vibe" value={v.value} defaultChecked={i === 0} className="accent-[var(--series-human)]" />
                 {v.label}
               </label>
@@ -55,10 +55,10 @@ export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string;
             maxLength={200}
             rows={3}
             placeholder="Anything Gemini should know about the photo"
-            className="mt-1 w-full rounded-lg border border-line bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-human"
+            className="mt-1 w-full rounded-[18px] border border-[rgba(22,38,61,0.12)] bg-white px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-sky focus:ring-4 focus:ring-sky/25"
           />
         </label>
-        <p className="rounded-lg bg-black/3 p-3 text-xs text-muted dark:bg-white/4">
+        <p className="rounded-[18px] bg-powder p-3 text-xs text-muted">
           Posts into today&apos;s challenge (“{dailyPrompt}”) as you, using the same prompt and model as the main app.
           The full prompt is saved with the post.
         </p>
@@ -70,7 +70,7 @@ export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string;
         <button
           type="submit"
           disabled={pending}
-          className="mt-auto rounded-lg bg-navy px-4 py-2.5 text-sm font-medium text-white hover:bg-[#123d77] disabled:opacity-60 dark:bg-columbia dark:text-navy"
+          className="mt-auto btn btn-primary"
         >
           {pending ? "Uploading & asking Gemini…" : "Upload & generate captions"}
         </button>

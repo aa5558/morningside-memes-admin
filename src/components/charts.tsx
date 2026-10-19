@@ -28,7 +28,7 @@ function dayLabel(day: string) {
 function ChartTooltip({ active, payload, label, series }: TooltipContentProps & { series: Series[] }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-[14px] border border-line bg-white/95 px-3 py-2 text-xs shadow-[0_12px_30px_-12px_rgba(22,38,61,0.35)] backdrop-blur">
       <p className="mb-1 font-semibold">{dayLabel(String(label))}</p>
       {series.map((s) => {
         const item = payload.find((p) => p.dataKey === s.key);
@@ -175,14 +175,14 @@ export function MetricExplorer({
             role="tab"
             aria-selected={m.key === active}
             onClick={() => setActive(m.key)}
-            className={`min-w-[120px] flex-1 rounded-lg border px-3 py-2 text-left transition ${
+            className={`min-w-[120px] flex-1 rounded-[18px] border px-3.5 py-2.5 text-left transition ${
               m.key === active
-                ? "border-human/50 bg-human/8 shadow-[inset_0_-2px_0_var(--series-human)]"
-                : "border-line hover:bg-black/3 dark:hover:bg-white/3"
+                ? "border-transparent bg-ice shadow-[inset_0_1px_0_#fff]"
+                : "border-line hover:bg-background"
             }`}
           >
             <span className="block text-xs font-medium text-muted">{m.label}</span>
-            <span className="tabular block text-lg font-semibold">{m.total.toLocaleString("en-US")}</span>
+            <span className="display block text-2xl">{m.total.toLocaleString("en-US")}</span>
           </button>
         ))}
       </div>
@@ -261,7 +261,7 @@ export function CompareBars({
             cursor={{ fill: "var(--grid)", opacity: 0.5 }}
             content={({ active, payload }) =>
               active && payload?.length ? (
-                <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lg">
+                <div className="rounded-[14px] border border-line bg-white/95 px-3 py-2 text-xs shadow-[0_12px_30px_-12px_rgba(22,38,61,0.35)] backdrop-blur">
                   <span className="font-semibold">{String(payload[0].payload.label)}</span>:{" "}
                   <span className="tabular">{Number(payload[0].value).toFixed(2)}</span>
                 </div>

@@ -1,45 +1,28 @@
 @import "tailwindcss";
 
-/* Morningside Memes palette: Columbia blue + deep navy, same as the main app. */
+/* Light-only by design, like the main app. `dark:` only applies inside
+   `.dark`, which is never set. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Morningside Memes brand: icy baby blue, powder, sky, deep navy ink. */
 :root {
-  --background: #f3f6fa;
-  --foreground: #14213d;
+  --background: #f8fcff;
+  --foreground: #16263d;
   --surface: #ffffff;
-  --muted: #5b6b85;
-  --subtle: #8a97ab;
-  --line: rgba(11, 45, 91, 0.1);
-  --grid: #e6ebf2;
+  --muted: #4a5a72;
+  --subtle: #7b889c;
+  --line: rgba(22, 38, 61, 0.08);
+  --grid: #e8f1fb;
 
-  /* Chart series. Validated for CVD/contrast against the surfaces above. */
-  --series-human: #2a78d6;
-  --series-ai: #eb6834;
-  --series-up: #2a78d6;
-  --series-down: #e34948;
-  --series-1: #2a78d6;
+  /* Chart series, validated for CVD and contrast on white and #f8fcff. */
+  --series-human: #3d8ff0;
+  --series-ai: #e5539a;
+  --series-up: #3d8ff0;
+  --series-down: #ec5b37;
+  --series-1: #3d8ff0;
 
-  --danger: #c4302b;
-  --success: #0f7b3f;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0f1a;
-    --foreground: #e8edf5;
-    --surface: #121a2a;
-    --muted: #a3b0c5;
-    --subtle: #7a879c;
-    --line: rgba(185, 217, 235, 0.12);
-    --grid: #1f2a3d;
-
-    --series-human: #3987e5;
-    --series-ai: #d95926;
-    --series-up: #3987e5;
-    --series-down: #e66767;
-    --series-1: #3987e5;
-
-    --danger: #f07070;
-    --success: #3ccf7a;
-  }
+  --danger: #c2401f;
+  --success: #1f6fd1;
 }
 
 @theme inline {
@@ -55,11 +38,23 @@
   --color-ai: var(--series-ai);
   --color-up: var(--series-up);
   --color-down: var(--series-down);
-  --color-columbia: #b9d9eb;
-  --color-navy: #0b2d5b;
-  --color-navy-deep: #071d3b;
+  --color-human-ink: #1f6fd1;
+  --color-ai-ink: #b42d72;
+  --color-down-ink: #c2401f;
+  --color-ice: #b8dcff;
+  --color-powder: #e3f2ff;
+  --color-sky: #69b5ff;
+  --color-ink: #16263d;
+  --color-butter: #fff1c2;
+  --color-butter-ink: #7a5600;
+  /* Older names, now mapped onto the new brand. */
+  --color-columbia: #b8dcff;
+  --color-navy: #16263d;
+  --color-navy-deep: #16263d;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bricolage);
+  --font-serif: var(--font-instrument);
 }
 
 body {
@@ -68,12 +63,142 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 26rem at 20% -10%, rgba(184, 220, 255, 0.45), transparent 70%),
+    radial-gradient(30rem 22rem at 100% 0%, rgba(227, 242, 255, 0.9), transparent 70%);
+}
+
+::selection {
+  background: #b8dcff;
+  color: #16263d;
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .display {
+    font-family: var(--font-bricolage), system-ui, sans-serif;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variation-settings: "wdth" 92;
+  }
+  .serif {
+    font-family: var(--font-instrument), Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 12px 32px -18px rgba(22, 38, 61, 0.25);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  }
+  .orb {
+    background:
+      radial-gradient(circle at 32% 26%, #ffffff 0%, rgba(255, 255, 255, 0) 38%),
+      radial-gradient(circle at 70% 80%, #69b5ff 0%, rgba(105, 181, 255, 0) 60%),
+      linear-gradient(160deg, #d9edff 0%, #a9d3ff 100%);
+    box-shadow:
+      inset 0 -3px 6px rgba(31, 111, 209, 0.25),
+      inset 0 2px 2px rgba(255, 255, 255, 0.9),
+      0 8px 18px -8px rgba(105, 181, 255, 0.95);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.875rem;
+    transition:
+      transform 160ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      opacity 160ms ease;
+  }
+  .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .btn:focus-visible {
+    outline: 3px solid #69b5ff;
+    outline-offset: 2px;
+  }
+  .btn-sm {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8125rem;
+  }
+  .btn-primary {
+    color: #fff;
+    background: linear-gradient(180deg, #2b3f5e 0%, #16263d 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 8px 20px -12px rgba(22, 38, 61, 0.7);
+  }
+  .btn-ice {
+    color: #16263d;
+    background: linear-gradient(180deg, #d6ecff 0%, #b8dcff 100%);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 8px 20px -12px rgba(105, 181, 255, 0.95);
+  }
+  .btn-ghost {
+    color: #16263d;
+    background: #fff;
+    box-shadow:
+      inset 0 0 0 1px rgba(22, 38, 61, 0.1),
+      0 4px 12px -10px rgba(22, 38, 61, 0.3);
+  }
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(180deg, #f07455 0%, #e04e2b 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 8px 20px -12px rgba(236, 91, 55, 0.9);
+  }
 }
 
 /* Recharts' default focus outline on the SVG wrapper is noisy. */
 .recharts-wrapper svg:focus,
 .recharts-surface:focus {
   outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

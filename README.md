@@ -11,6 +11,10 @@ A separate, superadmin-only dashboard for [Morningside Memes](https://github.com
 | **Votes** `/votes` | Every vote, with voter, caption and direction, filters, trend and CSV export. **Read-only** |
 | **Audit log** `/audit` | Every admin create, edit and delete, with before and after values |
 
+## Design
+
+Same brand as the main app: icy baby blue `#B8DCFF`, powder `#E3F2FF`, sky `#69B5FF`, navy ink `#16263D` on `#F8FCFF`. Bricolage Grotesque headlines, Geist body text, glossy pill buttons, a floating glass sidebar, and light-only surfaces. Chart colors (Humans `#3D8FF0`, Gemini `#E5539A`, downvotes `#EC5B37`) were checked for color-blind separation and contrast on the page backgrounds.
+
 ## Security model
 
 Google login alone gets you nothing. Access requires `profiles.is_superadmin = true` in the database.
@@ -54,7 +58,7 @@ npm run dev -- -p 3001
 | `npm test` | Playwright, signed out (desktop and mobile): every page redirects to login, APIs return 401, forged cookies and direct server-action POSTs are rejected, `?next=` can't redirect off-site, no secrets in client bundles. `BASE_URL=https://… npm test` runs it against a deployment |
 | `npm run test:e2e` | Playwright, signed in, against the real app and a local Supabase stand-in ([`tests/mock`](tests/mock)) running the real migrations with RLS: regular users get 403 everywhere (including direct server-action calls), and superadmins can view, filter and export, edit AI captions and context, generate captions with Gemini, upload, and delete captions and posts (photo file included), with nothing else changed. No horizontal scrolling at phone width |
 
-The `test:db` and `test:e2e` commands expect the main app checked out next to this repo (`../hello-world-nextjs`), or `MAIN_MIGRATIONS` pointing at its `supabase/migrations`.
+The mock in [`tests/mock`](tests/mock) also supports the main app's queries (embedded relations, filters, upserts); the main app's own Playwright suite uses it. The `test:db` and `test:e2e` commands expect the main app checked out next to this repo (`../hello-world-nextjs`), or `MAIN_MIGRATIONS` pointing at its `supabase/migrations`.
 
 ### Manual check with a real Google account
 

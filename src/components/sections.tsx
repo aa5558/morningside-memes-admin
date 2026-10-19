@@ -10,16 +10,16 @@ export function HumanVsAi({ stats, detailed = false }: { stats: DashboardStats["
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-human/8 p-3">
-          <p className="tabular text-2xl font-semibold text-human">{formatNumber(stats.human_wins)}</p>
+        <div className="rounded-[18px] bg-powder p-3">
+          <p className="tabular display text-3xl text-human-ink">{formatNumber(stats.human_wins)}</p>
           <p className="text-xs text-muted">Human wins</p>
         </div>
-        <div className="rounded-lg bg-black/3 p-3 dark:bg-white/4">
-          <p className="tabular text-2xl font-semibold text-muted">{formatNumber(ties)}</p>
+        <div className="rounded-[18px] bg-background p-3 ring-1 ring-line">
+          <p className="tabular display text-3xl text-muted">{formatNumber(ties)}</p>
           <p className="text-xs text-muted">Undecided</p>
         </div>
-        <div className="rounded-lg bg-ai/8 p-3">
-          <p className="tabular text-2xl font-semibold text-ai">{formatNumber(stats.ai_wins)}</p>
+        <div className="rounded-[18px] bg-[#ffe8f3] p-3">
+          <p className="tabular display text-3xl text-ai-ink">{formatNumber(stats.ai_wins)}</p>
           <p className="text-xs text-muted">Gemini wins</p>
         </div>
       </div>
@@ -112,10 +112,10 @@ export function RecentActivity({ items }: { items: DashboardStats["recent_activi
             aria-hidden
             className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs ${
               item.kind === "upvote"
-                ? "bg-up/12 text-up"
+                ? "bg-powder text-human-ink"
                 : item.kind === "downvote"
-                  ? "bg-down/12 text-down"
-                  : "bg-black/4 dark:bg-white/6"
+                  ? "bg-[#ffede6] text-down-ink"
+                  : "bg-powder"
             }`}
           >
             {ACTIVITY_ICON[item.kind]}

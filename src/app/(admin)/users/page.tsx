@@ -75,7 +75,7 @@ export default async function UsersPage(props: PageProps<"/users">) {
               </thead>
               <tbody className="tabular divide-y divide-line">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-black/2 dark:hover:bg-white/3">
+                  <tr key={u.id} className="transition hover:bg-background">
                     <td className="px-5 py-3">
                       <Link href={`/users/${u.id}`} className="flex items-center gap-3">
                         <Avatar src={u.avatar_url} name={u.display_name} />
@@ -83,7 +83,7 @@ export default async function UsersPage(props: PageProps<"/users">) {
                           <span className="flex items-center gap-2 font-medium hover:underline">
                             {u.display_name}
                             {u.is_superadmin && (
-                              <span className="rounded bg-navy px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-columbia">
+                              <span className="orb rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink">
                                 Admin
                               </span>
                             )}

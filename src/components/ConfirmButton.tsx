@@ -41,7 +41,7 @@ export function ConfirmButton({
       </button>
       <dialog
         ref={dialog}
-        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-0 text-foreground shadow-2xl backdrop:bg-black/50"
+        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-[28px] border-0 bg-white p-0 text-ink shadow-[0_30px_80px_-20px_rgba(22,38,61,0.45)] backdrop:bg-ink/25 backdrop:backdrop-blur-sm"
       >
         <form
           method="dialog"
@@ -58,7 +58,7 @@ export function ConfirmButton({
           }}
           className="p-5"
         >
-          <h2 className="text-base font-semibold">{title}</h2>
+          <h2 className="display text-2xl">{title}</h2>
           <div className="mt-2 text-sm text-muted">{body}</div>
           {confirmWord && (
             <label className="mt-4 block text-xs font-medium text-muted">
@@ -67,7 +67,7 @@ export function ConfirmButton({
                 autoFocus
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line bg-background px-3 py-2 font-mono text-sm outline-none focus:border-danger"
+                className="mt-1 w-full rounded-full border border-[rgba(22,38,61,0.12)] bg-white px-4 py-2 font-mono text-sm outline-none focus:border-down focus:ring-4 focus:ring-down/20"
               />
             </label>
           )}
@@ -75,14 +75,14 @@ export function ConfirmButton({
             <button
               type="button"
               onClick={() => dialog.current?.close()}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-black/5 dark:hover:bg-white/5"
+              className="btn btn-ghost"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!ready || pending}
-              className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              className="btn btn-danger"
             >
               {pending ? "Working…" : confirmLabel}
             </button>

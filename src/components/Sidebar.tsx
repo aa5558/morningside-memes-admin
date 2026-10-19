@@ -40,20 +40,24 @@ export function Sidebar({
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   const nav = (
-    <nav aria-label="Admin" className="flex flex-col gap-0.5">
+    <nav aria-label="Admin" className="flex flex-col gap-1">
       {NAV.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           onClick={() => setOpen(false)}
           aria-current={isActive(item.href) ? "page" : undefined}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+          className={`flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition ${
             isActive(item.href)
-              ? "bg-white/12 text-white shadow-[inset_2px_0_0_#b9d9eb]"
-              : "text-white/65 hover:bg-white/6 hover:text-white"
+              ? "bg-white text-ink shadow-[0_4px_14px_-6px_rgba(22,38,61,0.25)] ring-1 ring-line"
+              : "text-muted hover:bg-white/60 hover:text-ink"
           }`}
         >
-          <Icon d={item.icon} />
+          <span
+            className={`flex h-7 w-7 items-center justify-center rounded-full ${isActive(item.href) ? "orb text-ink" : ""}`}
+          >
+            <Icon d={item.icon} />
+          </span>
           {item.label}
         </Link>
       ))}
@@ -61,31 +65,31 @@ export function Sidebar({
   );
 
   const footer = (
-    <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
+    <div className="mt-auto space-y-3">
       <a
         href={mainAppUrl}
         target="_blank"
         rel="noreferrer"
-        className="flex items-center gap-2 px-3 text-xs text-white/55 hover:text-white"
+        className="flex items-center gap-2 px-3 text-xs font-medium text-muted hover:text-ink"
       >
         Open Morningside Memes ↗
       </a>
-      <div className="flex items-center gap-3 rounded-lg bg-white/5 p-2.5">
+      <div className="flex items-center gap-3 rounded-[20px] bg-white p-2.5 ring-1 ring-line">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+          <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-columbia text-xs font-bold text-navy">
+          <span className="orb flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-ink">
             {name.slice(0, 1).toUpperCase()}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-white">{name}</p>
-          <p className="truncate text-xs text-white/50">{email}</p>
+          <p className="truncate text-sm font-semibold text-ink">{name}</p>
+          <p className="truncate text-xs text-subtle">{email}</p>
         </div>
       </div>
       <form action={signOutAction}>
-        <button type="submit" className="w-full rounded-lg px-3 py-1.5 text-left text-xs font-medium text-white/60 hover:bg-white/6 hover:text-white">
+        <button type="submit" className="btn btn-ghost btn-sm w-full">
           Sign out
         </button>
       </form>
@@ -93,11 +97,15 @@ export function Sidebar({
   );
 
   const brand = (
-    <Link href="/" className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-columbia text-sm font-bold text-navy">MM</span>
+    <Link href="/" className="group flex items-center gap-2.5">
+      <span className="orb flex h-9 w-9 items-center justify-center rounded-full transition-transform group-hover:-rotate-6">
+        <span className="display text-[15px] text-ink">mm</span>
+      </span>
       <span className="leading-tight">
-        <span className="block text-sm font-semibold text-white">Morningside Memes</span>
-        <span className="block text-[11px] font-medium uppercase tracking-[0.14em] text-columbia/80">Admin</span>
+        <span className="display block text-[16px] text-ink">
+          morningside memes<span className="text-sky">.</span>
+        </span>
+        <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">admin console</span>
       </span>
     </Link>
   );
@@ -105,30 +113,32 @@ export function Sidebar({
   return (
     <>
       {/* Desktop */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col gap-6 bg-navy-deep px-3 py-5 lg:flex">
+      <aside className="glass fixed inset-y-3 left-3 z-30 hidden w-60 flex-col gap-7 rounded-[30px] px-3 py-5 lg:flex">
         <div className="px-2">{brand}</div>
         {nav}
         {footer}
       </aside>
 
       {/* Mobile top bar + drawer */}
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-navy-deep px-4 py-3 lg:hidden">
-        {brand}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-controls="mobile-nav"
-          className="rounded-lg p-2 text-white hover:bg-white/10"
-        >
-          <span className="sr-only">Menu</span>
-          <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-          </svg>
-        </button>
+      <header className="sticky top-0 z-30 px-3 pt-3 lg:hidden">
+        <div className="glass flex items-center justify-between rounded-full py-2 pl-3 pr-2">
+          {brand}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-powder text-ink"
+          >
+            <span className="sr-only">Menu</span>
+            <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 8h16M4 16h16" />}
+            </svg>
+          </button>
+        </div>
       </header>
       {open && (
-        <div id="mobile-nav" className="fixed inset-x-0 top-[60px] bottom-0 z-30 flex flex-col gap-6 overflow-y-auto bg-navy-deep px-3 pb-6 pt-2 lg:hidden">
+        <div id="mobile-nav" className="glass fixed inset-x-3 bottom-3 top-[76px] z-30 flex flex-col gap-6 overflow-y-auto rounded-[30px] !bg-white/95 px-3 py-4 lg:hidden">
           {nav}
           {footer}
         </div>

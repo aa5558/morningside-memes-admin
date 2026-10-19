@@ -129,6 +129,182 @@ async function readBody(req) {
 }
 
 const IDENT = /^[a-z_][a-z0-9_]*$/;
+
+// --- A small PostgREST subset -------------------------------------------------
+// Enough for the main app and the admin app: select lists with one level of
+// embedding (generations -> captions, captions -> generations!inner),
+// eq/neq/gt/gte/lt/lte/in/is filters (also on an embedded table), order,
+// limit, and insert/upsert/update/delete with return=representation.
+
+const RELATIONS = {
+  "generations.captions": { many: true, table: "captions", on: (p, c) => `${c}.generation_id = ${p}.id` },
+  "captions.generations": { many: false, table: "generations", on: (p, c) => `${c}.id = ${p}.generation_id` },
+};
+
+function splitTop(list) {
+  const out = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of list) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      out.push(cur.trim());
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+function parseSelect(select) {
+  const cols = [];
+  const embeds = [];
+  for (const item of splitTop(select ?? "*")) {
+    const m = item.match(/^([a-z_]+)(!inner)?\((.*)\)$/);
+    if (m) embeds.push({ name: m[1], inner: !!m[2], cols: splitTop(m[3]) });
+    else {
+      if (item !== "*" && !IDENT.test(item)) throw new Error(`bad select ${item}`);
+      cols.push(item);
+    }
+  }
+  return { cols, embeds };
+}
+
+function parseValue(op, raw, values) {
+  if (op === "in") {
+    const items = raw.replace(/^\(|\)$/g, "").split(",").map((v) => v.replace(/^"|"$/g, ""));
+    values.push(items);
+    return `= any($${values.length})`;
+  }
+  if (op === "is") {
+    if (!["null", "true", "false"].includes(raw)) throw new Error("bad is");
+    return `is ${raw}`;
+  }
+  const sqlOp = { eq: "=", neq: "<>", gt: ">", gte: ">=", lt: "<", lte: "<=" }[op];
+  if (!sqlOp) throw new Error(`unsupported op ${op}`);
+  values.push(raw);
+  return `${sqlOp} $${values.length}`;
+}
+
+function buildWhere(params, alias, tableName, values) {
+  const where = [];
+  const embedFilters = {};
+  for (const [key, val] of params) {
+    if (["select", "order", "limit", "offset", "on_conflict", "columns"].includes(key)) continue;
+    const dot = val.indexOf(".");
+    const op = val.slice(0, dot);
+    const raw = val.slice(dot + 1);
+    if (key.includes(".")) {
+      const [rel, col] = key.split(".");
+      if (!IDENT.test(rel) || !IDENT.test(col)) throw new Error("bad filter");
+      (embedFilters[rel] ??= []).push({ col, op, raw });
+      continue;
+    }
+    if (!IDENT.test(key)) throw new Error("bad filter");
+    where.push(`${alias}.${key} ${parseValue(op, raw, values)}`);
+  }
+  return { where, embedFilters };
+}
+
+async function handleTable(req, res, name, url, claims) {
+  if (!IDENT.test(name)) return send(res, 400, { message: "bad table" });
+  const params = [...url.searchParams];
+  const prefer = req.headers.prefer ?? "";
+  const wantsObject = (req.headers.accept ?? "").includes("vnd.pgrst.object");
+  const select = url.searchParams.get("select");
+
+  const finish = (rows) => {
+    if (wantsObject) {
+      if (rows.length !== 1) return send(res, 406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" });
+      return send(res, 200, JSON.stringify(rows[0]));
+    }
+    return send(res, 200, JSON.stringify(rows));
+  };
+
+  if (req.method === "GET" || req.method === "HEAD") {
+    const values = [];
+    const { cols, embeds } = parseSelect(select);
+    const { where, embedFilters } = buildWhere(params, "t", name, values);
+    const parts = cols.map((c) => (c === "*" ? "t.*" : `t.${c}`));
+    embeds.forEach((e, i) => {
+      const rel = RELATIONS[`${name}.${e.name}`];
+      if (!rel) throw new Error(`no relation ${name}.${e.name}`);
+      const a = `e${i}`;
+      for (const c of e.cols) if (!IDENT.test(c)) throw new Error("bad embed col");
+      const obj = `json_build_object(${e.cols.map((c) => `'${c}', ${a}.${c}`).join(", ")})`;
+      const filters = (embedFilters[e.name] ?? []).map((f) => `${a}.${f.col} ${parseValue(f.op, f.raw, values)}`);
+      const cond = [rel.on("t", a), ...filters].join(" and ");
+      parts.push(
+        rel.many
+          ? `(select coalesce(json_agg(${obj}), '[]'::json) from public.${rel.table} ${a} where ${cond}) as ${e.name}`
+          : `(select ${obj} from public.${rel.table} ${a} where ${cond}) as ${e.name}`
+      );
+      if (e.inner || filters.length) where.push(`exists (select 1 from public.${rel.table} ${a} where ${cond})`);
+    });
+    let sql = `select ${parts.join(", ")} from public.${name} t`;
+    if (where.length) sql += ` where ${where.join(" and ")}`;
+    const order = url.searchParams.get("order");
+    if (order) {
+      sql += " order by " + order.split(",").map((o) => {
+        const [col, dir = "asc", nulls] = o.split(".");
+        if (!IDENT.test(col) || !["asc", "desc"].includes(dir)) throw new Error("bad order");
+        return `t.${col} ${dir}${nulls === "nullslast" ? " nulls last" : nulls === "nullsfirst" ? " nulls first" : ""}`;
+      }).join(", ");
+    }
+    const limit = Number(url.searchParams.get("limit"));
+    if (limit > 0) sql += ` limit ${Math.min(limit, 1000)}`;
+    const result = await asCaller(claims, (tx) => tx.query(sql, values));
+    if (prefer.includes("count=exact")) {
+      const n = result.rows.length;
+      res.setHeader("Content-Range", `${n ? `0-${n - 1}` : "*"}/${n}`);
+      if (req.method === "HEAD") return send(res, 200);
+    }
+    return finish(result.rows);
+  }
+
+  const returning = prefer.includes("return=representation") ? ` returning ${select ? parseSelect(select).cols.join(", ") : "*"}` : "";
+
+  if (req.method === "POST") {
+    const body = JSON.parse((await readBody(req)).toString() || "[]");
+    const rows = Array.isArray(body) ? body : [body];
+    const keys = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+    if (!keys.every((k) => IDENT.test(k))) throw new Error("bad column");
+    const values = [];
+    const tuples = rows.map((r) => `(${keys.map((k) => { values.push(r[k] ?? null); return `$${values.length}`; }).join(", ")})`);
+    let sql = `insert into public.${name} (${keys.join(", ")}) values ${tuples.join(", ")}`;
+    if (prefer.includes("resolution=merge-duplicates")) {
+      const conflict = (url.searchParams.get("on_conflict") ?? "id").split(",");
+      if (!conflict.every((k) => IDENT.test(k))) throw new Error("bad on_conflict");
+      const updates = keys.filter((k) => !conflict.includes(k)).map((k) => `${k} = excluded.${k}`);
+      sql += ` on conflict (${conflict.join(", ")}) do ${updates.length ? `update set ${updates.join(", ")}` : "nothing"}`;
+    }
+    const result = await asCaller(claims, (tx) => tx.query(sql + returning, values));
+    if (!returning) return send(res, 201);
+    return finish(result.rows);
+  }
+
+  if (req.method === "PATCH" || req.method === "DELETE") {
+    const values = [];
+    let sql;
+    if (req.method === "PATCH") {
+      const body = JSON.parse((await readBody(req)).toString() || "{}");
+      const keys = Object.keys(body);
+      if (!keys.every((k) => IDENT.test(k))) throw new Error("bad column");
+      const sets = keys.map((k) => { values.push(body[k]); return `${k} = $${values.length}`; });
+      sql = `update public.${name} t set ${sets.join(", ")}`;
+    } else {
+      sql = `delete from public.${name} t`;
+    }
+    const { where } = buildWhere(params, "t", name, values);
+    if (where.length) sql += ` where ${where.join(" and ")}`;
+    const result = await asCaller(claims, (tx) => tx.query(sql + returning, values));
+    if (!returning) return send(res, 204);
+    return finish(result.rows);
+  }
+
+  return send(res, 405, { message: "method not allowed" });
+}
 const stored = new Map(); // storage path -> { bytes, type }
 const deletedPaths = [];
 
@@ -184,33 +360,14 @@ createServer(async (req, res) => {
       }
     }
 
-    // --- PostgREST: simple table reads (select + eq filters) --------------
+    // --- PostgREST: tables (select with embeds, filters, order, limit; writes)
     const table = path.match(/^\/rest\/v1\/([a-z_]+)$/);
-    if (table && req.method === "GET") {
-      const cols = (url.searchParams.get("select") ?? "*").split(",").map((c) => c.trim());
-      if (!cols.every((c) => c === "*" || IDENT.test(c))) return send(res, 400, { message: "bad select" });
-      const where = [];
-      const values = [];
-      for (const [k, v] of url.searchParams) {
-        if (k === "select" || k === "limit") continue;
-        if (!IDENT.test(k) || !v.startsWith("eq.")) return send(res, 400, { message: `unsupported filter ${k}` });
-        values.push(v.slice(3));
-        where.push(`${k} = $${values.length}`);
-      }
+    if (table) {
       try {
-        const result = await asCaller(claims, (tx) =>
-          tx.query(
-            `select ${cols.join(", ")} from public.${table[1]} ${where.length ? `where ${where.join(" and ")}` : ""}`,
-            values
-          )
-        );
-        if ((req.headers.accept ?? "").includes("vnd.pgrst.object")) {
-          if (result.rows.length !== 1) return send(res, 406, { code: "PGRST116", message: "not one row" });
-          return send(res, 200, result.rows[0]);
-        }
-        return send(res, 200, result.rows);
+        return await handleTable(req, res, table[1], url, claims);
       } catch (error) {
-        return pgError(res, error, claims);
+        if (error.code) return pgError(res, error, claims);
+        return send(res, 400, { message: String(error.message ?? error) });
       }
     }
 

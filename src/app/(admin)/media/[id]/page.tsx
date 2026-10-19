@@ -32,7 +32,7 @@ export default async function MediaDetailPage(props: PageProps<"/media/[id]">) {
         ← All media
       </Link>
       {searchParams.created && (
-        <p role="status" className="mb-4 rounded-lg bg-success/10 px-4 py-2 text-sm text-success">
+        <p role="status" className="mb-4 rounded-full bg-powder px-5 py-2.5 text-sm font-medium text-human-ink">
           Post created with {ai.length} Gemini captions. It&apos;s now live in the main app.
         </p>
       )}
@@ -41,7 +41,7 @@ export default async function MediaDetailPage(props: PageProps<"/media/[id]">) {
         <div className="space-y-5">
           <Card bodyClassName="p-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl(post.image_path)} alt={post.context ?? "Post photo"} className="w-full rounded-t-xl bg-black/5 object-contain" />
+            <img src={imageUrl(post.image_path)} alt={post.context ?? "Post photo"} className="w-full rounded-[20px] bg-powder object-contain" />
             <div className="space-y-4 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span>
@@ -76,7 +76,7 @@ export default async function MediaDetailPage(props: PageProps<"/media/[id]">) {
             </dl>
             <details className="mt-4 group">
               <summary className="cursor-pointer text-xs font-medium text-human">Show the exact prompt sent to Gemini</summary>
-              <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-black/4 p-3 text-xs leading-relaxed dark:bg-white/5">
+              <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-[16px] bg-background p-3 text-xs leading-relaxed ring-1 ring-line">
                 {post.prompt}
               </pre>
             </details>
@@ -182,7 +182,7 @@ function CaptionTable({
             {c.extra_prompt && (
               <details className="mt-1">
                 <summary className="cursor-pointer text-xs text-human">Prompt for this caption ({c.extra_model})</summary>
-                <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-black/4 p-2 text-[11px] dark:bg-white/5">
+                <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-[12px] bg-background p-2 text-[11px] ring-1 ring-line">
                   {c.extra_prompt}
                 </pre>
               </details>

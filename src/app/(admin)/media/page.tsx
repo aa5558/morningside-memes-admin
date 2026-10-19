@@ -51,15 +51,15 @@ export default async function MediaPage(props: PageProps<"/media">) {
   };
 
   const tabs = (
-    <div role="tablist" aria-label="View" className="inline-flex rounded-lg border border-line bg-surface p-0.5 text-sm">
+    <div role="tablist" aria-label="View" className="inline-flex rounded-full bg-powder p-1 text-sm">
       {(["posts", "captions"] as const).map((v) => (
         <Link
           key={v}
           role="tab"
           aria-selected={view === v}
           href={`/media?view=${v}`}
-          className={`rounded-md px-3 py-1.5 font-medium capitalize ${
-            view === v ? "bg-navy text-white dark:bg-columbia dark:text-navy" : "text-muted hover:text-foreground"
+          className={`rounded-full px-3.5 py-1.5 font-semibold capitalize transition ${
+            view === v ? "bg-white text-ink shadow-[0_2px_8px_-2px_rgba(22,38,61,0.2)]" : "text-muted hover:text-ink"
           }`}
         >
           {v}
@@ -136,7 +136,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
             {tabs}
             <Link
               href="/media/new"
-              className="rounded-lg bg-navy px-4 py-2 text-sm font-medium text-white hover:bg-[#123d77] dark:bg-columbia dark:text-navy"
+              className="btn btn-primary"
             >
               + New AI post
             </Link>
@@ -144,7 +144,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
         }
       />
       {deleted && (
-        <p role="status" className="mb-4 rounded-lg bg-success/10 px-4 py-2 text-sm text-success">
+        <p role="status" className="mb-4 rounded-full bg-powder px-5 py-2.5 text-sm font-medium text-human-ink">
           Post deleted, along with its captions, votes, and photo file.
         </p>
       )}
@@ -201,12 +201,12 @@ function PostsGrid({
           <li key={m.id}>
             <Link
               href={`/media/${m.id}`}
-              className="group block overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_2px_rgba(11,45,91,0.04)] transition hover:-translate-y-0.5 hover:shadow-md"
+              className="group block overflow-hidden rounded-[24px] border border-line bg-surface shadow-[0_1px_2px_rgba(11,45,91,0.04)] transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="relative">
-                <Thumb src={imageUrl(m.image_path)} alt={m.context ?? ""} className="aspect-square w-full rounded-none" />
+                <Thumb src={imageUrl(m.image_path)} alt={m.context ?? ""} className="aspect-square w-full rounded-[18px]" />
                 {m.human_captions > 0 && (
-                  <span className="absolute left-2 top-2 rounded-full bg-navy/85 px-2 py-0.5 text-[10px] font-semibold text-columbia">
+                  <span className="absolute left-2 top-2 glass rounded-full px-2 py-0.5 text-[10px] font-semibold text-ink">
                     ⚔️ Battle
                   </span>
                 )}
@@ -260,7 +260,7 @@ function CaptionsTable({
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((c) => (
-                <tr key={c.id} className="hover:bg-black/2 dark:hover:bg-white/3">
+                <tr key={c.id} className="transition hover:bg-background">
                   <td className="px-5 py-2.5">
                     <Link href={`/media/${c.generation_id}`} className="flex items-center gap-3">
                       <Thumb src={imageUrl(c.image_path)} alt="" className="h-9 w-9" />

@@ -27,53 +27,57 @@ export default async function LoginPage(props: PageProps<"/login">) {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy-deep p-6">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{
-          background:
-            "radial-gradient(60rem 30rem at 15% 10%, rgba(185,217,235,0.18), transparent 60%), radial-gradient(40rem 25rem at 90% 90%, rgba(42,120,214,0.25), transparent 60%)",
-        }}
-      />
-      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-white p-8 shadow-2xl dark:bg-[#121a2a]">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-base font-bold text-columbia">
-            MM
+    <main className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-5 py-12 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="flex flex-col gap-5">
+        <div className="flex items-center gap-2.5">
+          <span className="orb flex h-10 w-10 items-center justify-center rounded-full">
+            <span className="display text-base text-ink">mm</span>
           </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-              Morningside Memes
-            </p>
-            <h1 className="text-xl font-semibold">Admin Console</h1>
-          </div>
+          <span className="display text-lg text-ink">
+            morningside memes<span className="text-sky">.</span>
+          </span>
         </div>
-        <p className="mb-6 text-sm text-muted">
-          Restricted area. Sign in with the Google account linked to a Morningside Memes
-          superadmin profile.
+        <p className="eyebrow mt-6">admin console</p>
+        <h1 className="display text-5xl text-ink sm:text-7xl">
+          Behind the
+          <br />
+          <span className="serif text-[#1f6fd1]">scenes.</span>
+        </h1>
+        <p className="max-w-md text-[17px] leading-relaxed text-muted">
+          Stats, moderation, and every caption battle in one place. Restricted to Morningside Memes
+          superadmins.
         </p>
-        {error && (
-          <p role="alert" className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-danger">
-            {ERROR_MESSAGES[error] ?? "Something went wrong. Please try again."}
+      </section>
+
+      <section className="glass relative overflow-hidden rounded-[36px] p-8 sm:p-10">
+        <span aria-hidden className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-ice/70 blur-3xl" />
+        <div className="relative flex flex-col gap-5">
+          <div>
+            <h2 className="display text-3xl text-ink">Admin Console</h2>
+            <p className="mt-1 text-sm text-muted">
+              Restricted area. Sign in with the Google account linked to a Morningside Memes superadmin profile.
+            </p>
+          </div>
+          {error && (
+            <p role="alert" className="rounded-[18px] bg-[#ffede6] px-4 py-3 text-sm text-danger">
+              {ERROR_MESSAGES[error] ?? "Something went wrong. Please try again."}
+            </p>
+          )}
+          <form action={signInWithGoogle}>
+            <input type="hidden" name="next" value={next} />
+            <button type="submit" className="btn btn-primary w-full !py-3.5 !text-base">
+              <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5">
+                <path fill="#fff" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.2 14.6 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12s4.4 9.8 9.8 9.8c5.7 0 9.4-4 9.4-9.6 0-.6-.1-1.1-.2-1.6H12z" />
+              </svg>
+              Continue with Google
+            </button>
+          </form>
+          <p className="text-xs leading-relaxed text-subtle">
+            Access is granted per account by a database administrator. Signing in with Google alone does not
+            grant admin access.
           </p>
-        )}
-        <form action={signInWithGoogle}>
-          <input type="hidden" name="next" value={next} />
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-3 rounded-lg bg-navy px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#123d77] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy dark:bg-columbia dark:text-navy dark:hover:bg-white"
-          >
-            <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4">
-              <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.2 14.6 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12s4.4 9.8 9.8 9.8c5.7 0 9.4-4 9.4-9.6 0-.6-.1-1.1-.2-1.6H12z" />
-            </svg>
-            Continue with Google
-          </button>
-        </form>
-        <p className="mt-6 text-xs text-subtle">
-          Access is granted per account by a database administrator. Signing in with Google
-          alone does not grant admin access.
-        </p>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }

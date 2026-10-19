@@ -24,13 +24,13 @@ export default async function UserDetailPage(props: PageProps<"/users/[id]">) {
         ← All users
       </Link>
 
-      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 sm:flex-row sm:items-center">
+      <div className="mb-6 flex flex-col gap-4 rounded-[24px] border border-line bg-surface p-5 sm:flex-row sm:items-center">
         <Avatar src={user.avatar_url} name={user.display_name} size={64} />
         <div className="min-w-0 flex-1">
           <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
             {user.display_name}
             {user.is_superadmin && (
-              <span className="rounded bg-navy px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-columbia">
+              <span className="orb rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-ink">
                 Superadmin
               </span>
             )}

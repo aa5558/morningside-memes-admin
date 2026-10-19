@@ -53,7 +53,7 @@ export default async function VotesPage(props: PageProps<"/votes">) {
         actions={
           <a
             href={`/api/votes/export?${query}`}
-            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5"
+            className="btn btn-ghost"
           >
             Export CSV
           </a>
@@ -152,7 +152,7 @@ export default async function VotesPage(props: PageProps<"/votes">) {
               </thead>
               <tbody className="divide-y divide-line">
                 {votes.map((v) => (
-                  <tr key={`${v.voter_id}-${v.caption_id}`} className="hover:bg-black/2 dark:hover:bg-white/3">
+                  <tr key={`${v.voter_id}-${v.caption_id}`} className="transition hover:bg-background">
                     <td className="px-5 py-2.5">
                       <VoteBadge vote={v.vote} />
                     </td>

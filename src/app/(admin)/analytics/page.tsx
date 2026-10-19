@@ -44,10 +44,7 @@ export default async function AnalyticsPage(props: PageProps<"/analytics">) {
           <TrendChart
             kind="bar"
             data={daily}
-            series={[
-              { key: "photos", label: "Photos", color: "var(--series-1)" },
-              { key: "human_captions", label: "Human captions", color: "var(--series-ai)" },
-            ]}
+            series={[{ key: "photos", label: "Photos", color: "var(--series-1)" }]}
           />
         </Card>
         <Card title="Votes per day" description={`${formatNumber(stats.period.votes)} votes in ${days} days`}>
@@ -83,7 +80,7 @@ export default async function AnalyticsPage(props: PageProps<"/analytics">) {
             <ul className="divide-y divide-line">
               {stats.active_users.map((u, i) => (
                 <li key={u.id}>
-                  <Link href={`/users/${u.id}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-black/2 dark:hover:bg-white/3">
+                  <Link href={`/users/${u.id}`} className="flex items-center gap-3 px-5 py-2.5 transition hover:bg-background">
                     <span className="tabular w-4 text-right text-xs font-semibold text-subtle">{i + 1}</span>
                     <Avatar src={u.avatar_url} name={u.name} size={28} />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{u.name}</span>
@@ -107,7 +104,7 @@ export default async function AnalyticsPage(props: PageProps<"/analytics">) {
             <ul className="divide-y divide-line">
               {stats.popular_posts.map((p) => (
                 <li key={p.id}>
-                  <Link href={`/media/${p.id}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-black/2 dark:hover:bg-white/3">
+                  <Link href={`/media/${p.id}`} className="flex items-center gap-3 px-5 py-2.5 transition hover:bg-background">
                     <Thumb src={imageUrl(p.image_path)} alt="" className="h-10 w-10" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{p.context || p.daily_prompt || "Untitled post"}</span>
