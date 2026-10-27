@@ -8,7 +8,29 @@ import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Audit log" };
 
+const NAME_KEYS = ["term", "display_name", "name", "domain", "email", "title", "caption"];
+
+// One line for the generic create/update/delete entries written by the
+// audit trigger: which record, and for edits which fields changed.
+function recordSummary(details: Record<string, unknown>) {
+  const record = (details.new ?? details.old) as Record<string, unknown> | undefined;
+  const key = record && NAME_KEYS.find((k) => typeof record[k] === "string");
+  if (record && key) return `“${String(record[key]).slice(0, 80)}”`;
+  const changes = details.changes as Record<string, { old: unknown; new: unknown }> | undefined;
+  if (changes) {
+    return Object.entries(changes)
+      .map(([field, c]) => `${field}: ${JSON.stringify(c.old)?.slice(0, 40)} → ${JSON.stringify(c.new)?.slice(0, 40)}`)
+      .join(" · ");
+  }
+  if ("old" in details && "new" in details) {
+    return `mix ${JSON.stringify(details.old)} → ${JSON.stringify(details.new)}`.replace(/"[0-9a-f-]{36}"/g, (m) => m.slice(1, 9));
+  }
+  return "";
+}
+
 function summary(details: Record<string, unknown>) {
+  const generic = recordSummary(details);
+  if (generic) return generic;
   if ("old_text" in details) return `“${details.old_text}” → “${details.new_text}”`;
   if ("old_context" in details) return `${details.old_context ?? "(none)"} → ${details.new_context ?? "(none)"}`;
   if ("text" in details) return `“${details.text}” (${details.author_type}, ▲${details.upvotes} ▼${details.downvotes})`;

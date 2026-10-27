@@ -3,7 +3,15 @@
 import { useActionState, useState } from "react";
 import { createPost, type ActionResult } from "@/app/(admin)/media/actions";
 
-export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string; label: string }[]; dailyPrompt: string }) {
+export function CreatePostForm({
+  vibes,
+  dailyPrompt,
+  chains,
+}: {
+  vibes: { value: string; label: string }[];
+  dailyPrompt: string;
+  chains: { id: string; name: string; weight: number }[];
+}) {
   const [state, action, pending] = useActionState<ActionResult, FormData>(createPost, {});
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -49,6 +57,21 @@ export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string;
           </div>
         </fieldset>
         <label className="text-xs font-medium text-muted">
+          Prompt chain
+          <select
+            name="chain"
+            defaultValue=""
+            className="mt-1 w-full rounded-full border border-[rgba(22,38,61,0.12)] bg-white px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-sky focus:ring-4 focus:ring-sky/25"
+          >
+            <option value="">Use the mix (like the main app)</option>
+            {chains.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.weight}% of the mix)
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-muted">
           Context (optional)
           <textarea
             name="context"
@@ -59,8 +82,8 @@ export function CreatePostForm({ vibes, dailyPrompt }: { vibes: { value: string;
           />
         </label>
         <p className="rounded-[18px] bg-powder p-3 text-xs text-muted">
-          Posts into today&apos;s challenge (“{dailyPrompt}”) as you, using the same prompt and model as the main app.
-          The full prompt is saved with the post.
+          Posts into today&apos;s challenge (“{dailyPrompt}”) as you, through the same caption pipeline as the main app.
+          Every model call is logged under Generation runs.
         </p>
         {state.error && (
           <p role="alert" className="text-sm text-danger">

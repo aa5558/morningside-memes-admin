@@ -16,6 +16,15 @@ const ADMIN_PAGES = [
   "/media/00000000-0000-0000-0000-000000000000",
   "/votes",
   "/audit",
+  "/studio",
+  "/studio/requests",
+  "/studio/requests/00000000-0000-0000-0000-000000000000",
+  "/studio/responses",
+  "/studio/examples",
+  "/models",
+  "/terms",
+  "/images",
+  "/access",
 ];
 
 const PROTECTED_TEXT = /Registered users|Humans vs\. Gemini|Votes cast|Audit log|Danger zone/;

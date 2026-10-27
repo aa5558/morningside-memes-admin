@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getMedia, imageUrl } from "@/lib/admin-data";
 import { AdminAuthError, requireAdminAction } from "@/lib/auth";
-import { buildCaptionPrompt, getDailyPrompt, isVibe } from "@/lib/captions";
-import { generateCaptionsWithGemini } from "@/lib/gemini";
+import { getDailyPrompt, isVibe } from "@/lib/captions";
+import { finishCaptionRequest, PipelineError, QUOTA_MESSAGE, runCaptionPipeline } from "@/lib/pipeline";
 import { isUuid } from "@/lib/validate";
 
 // Every action here is reachable by a direct POST, so each one re-checks
@@ -33,7 +33,16 @@ const DB_ERRORS: Record<string, string> = {
   invalid_captions: "Gemini didn't return any usable captions. Try again.",
   invalid_image_path: "The upload path was rejected.",
   invalid_vibe: "Pick a caption voice.",
+  invalid_scene: "Describe the photo in 3–300 characters.",
 };
+
+function pipelineError(error: unknown) {
+  if (!(error instanceof PipelineError)) return "Gemini couldn't caption that photo. Try again in a moment.";
+  if (error.userMessage === QUOTA_MESSAGE) {
+    return "Gemini is over its usage quota (HTTP 429), so nothing was generated or saved. Try again after the quota resets, or check the plan for GEMINI_API_KEY.";
+  }
+  return `Nothing was saved: ${error.message}`;
+}
 
 function dbError(error: { message: string } | null, fallback: string) {
   if (!error) return fallback;
@@ -74,22 +83,30 @@ export async function createPost(_prev: ActionResult, formData: FormData): Promi
 
     const bytes = await image.arrayBuffer();
     const dailyPrompt = getDailyPrompt();
-    const prompt = buildCaptionPrompt({ vibe, context, dailyPrompt });
+    const chainRaw = formData.get("chain");
+    const chainId = isUuid(chainRaw) ? chainRaw : undefined;
 
-    let captions: string[];
-    let model: string;
+    let run: Awaited<ReturnType<typeof runCaptionPipeline>>;
     try {
-      ({ captions, model } = await generateCaptionsWithGemini({ image: bytes, mimeType: image.type, prompt }));
+      run = await runCaptionPipeline(
+        supabase,
+        { vibe, context, dailyPrompt, image: bytes, mimeType: image.type },
+        { source: "admin", chainId }
+      );
     } catch (error) {
       console.error("Caption generation failed", error);
-      return { error: "Gemini couldn't caption that photo. Try again in a moment." };
+      return { error: pipelineError(error) };
     }
+    const { captions, model, prompt, requestId } = run;
 
     const imagePath = `${user.id}/${crypto.randomUUID()}.${IMAGE_EXTENSIONS[image.type]}`;
     const { error: uploadError } = await supabase.storage
       .from("generations")
       .upload(imagePath, bytes, { contentType: image.type });
-    if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+    if (uploadError) {
+      await finishCaptionRequest(supabase, requestId, false, uploadError.message);
+      return { error: `Upload failed: ${uploadError.message}` };
+    }
 
     const { data: id, error } = await supabase.rpc("admin_create_generation", {
       p_image_path: imagePath,
@@ -103,8 +120,10 @@ export async function createPost(_prev: ActionResult, formData: FormData): Promi
 
     if (error || !isUuid(id)) {
       await supabase.storage.from("generations").remove([imagePath]);
+      await finishCaptionRequest(supabase, requestId, false, error?.message ?? "save failed");
       return { error: dbError(error, "Couldn't save the post.") };
     }
+    await finishCaptionRequest(supabase, requestId, true, undefined, id);
 
     revalidateMedia();
     redirect(`/media/${id}?created=1`);
@@ -112,11 +131,13 @@ export async function createPost(_prev: ActionResult, formData: FormData): Promi
 }
 
 // CREATE: new Gemini captions for any existing photo, using its original
-// voice, context, and challenge prompt.
-export async function generateMoreCaptions(generationId: string): Promise<ActionResult> {
+// voice, context, and challenge prompt. With a chain id, runs that chain
+// (handy for comparing chains on the same photo); otherwise the mix picks.
+export async function generateMoreCaptions(generationId: string, chainId?: string | null): Promise<ActionResult> {
   return guard(async () => {
     const { supabase } = await requireAdminAction();
     if (!isUuid(generationId)) return { error: "Invalid post." };
+    if (chainId !== undefined && chainId !== null && !isUuid(chainId)) return { error: "Invalid chain." };
 
     const post = await getMedia(supabase, generationId);
     if (!post) return { error: DB_ERRORS.not_found };
@@ -129,32 +150,44 @@ export async function generateMoreCaptions(generationId: string): Promise<Action
     const bytes = await photo.arrayBuffer();
     if (bytes.byteLength > MAX_IMAGE_BYTES) return { error: "The stored photo is too large to caption." };
 
-    const prompt = buildCaptionPrompt({
-      vibe: post.vibe,
-      context: post.context,
-      dailyPrompt: post.daily_prompt ?? getDailyPrompt(post.challenge_date),
-      imagePrompt: post.image_source === "ai" ? post.image_prompt : null,
-    });
-
-    let captions: string[];
-    let model: string;
+    let run: Awaited<ReturnType<typeof runCaptionPipeline>>;
     try {
-      ({ captions, model } = await generateCaptionsWithGemini({ image: bytes, mimeType, prompt }));
+      run = await runCaptionPipeline(
+        supabase,
+        {
+          vibe: post.vibe,
+          context: post.context,
+          dailyPrompt: post.daily_prompt ?? getDailyPrompt(post.challenge_date),
+          imagePrompt: post.image_source === "ai" ? post.image_prompt : null,
+          image: bytes,
+          mimeType,
+        },
+        { source: "admin", chainId: chainId ?? undefined, generationId }
+      );
     } catch (error) {
       console.error("Caption generation failed", error);
-      return { error: "Gemini couldn't caption that photo. Try again in a moment." };
+      return { error: pipelineError(error) };
     }
 
     const { data: added, error } = await supabase.rpc("admin_add_ai_captions", {
       p_generation: generationId,
-      p_captions: captions,
-      p_model: model,
-      p_prompt: prompt,
+      p_captions: run.captions,
+      p_model: run.model,
+      p_prompt: run.prompt,
     });
-    if (error) return { error: dbError(error, "Couldn't save the captions.") };
+    if (error) {
+      await finishCaptionRequest(supabase, run.requestId, false, error.message);
+      return { error: dbError(error, "Couldn't save the captions.") };
+    }
+    await finishCaptionRequest(supabase, run.requestId, true, undefined, generationId);
 
     revalidateMedia(generationId);
-    return { success: `Added ${added} new Gemini caption${added === 1 ? "" : "s"}.` };
+    revalidatePath("/studio");
+    return {
+      success: `Added ${added} new caption${added === 1 ? "" : "s"} with the “${run.chain}” chain.${
+        added < run.captions.length ? " Duplicates of existing captions were skipped." : ""
+      }`,
+    };
   });
 }
 
@@ -229,4 +262,21 @@ export async function deletePost(generationId: string): Promise<ActionResult> {
 
   if (result.success === "deleted") redirect("/media?deleted=1");
   return result;
+}
+
+// CREATE an AI generation example from a real caption.
+export async function promoteToExample(captionId: string, generationId: string, scene: string): Promise<ActionResult> {
+  return guard(async () => {
+    const { supabase } = await requireAdminAction();
+    if (!isUuid(captionId) || !isUuid(generationId)) return { error: "Invalid caption." };
+    const trimmed = typeof scene === "string" ? scene.trim().replace(/\s+/g, " ") : "";
+    if (trimmed.length < 3 || trimmed.length > 300) return { error: DB_ERRORS.invalid_scene };
+
+    const { error } = await supabase.rpc("admin_promote_caption_to_example", { p_caption: captionId, p_scene: trimmed });
+    if (error) return { error: dbError(error, "Couldn't save the example.") };
+
+    revalidatePath("/studio/examples");
+    revalidatePath("/audit");
+    return { success: "Saved as an example. The model will see it on posts in this voice." };
+  });
 }

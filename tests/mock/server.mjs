@@ -74,6 +74,7 @@ for (const f of [
   await db.exec(readFileSync(path, "utf8"));
 }
 await db.exec(readFileSync(join(ROOT, "supabase/migrations/20261019000000_admin_dashboard.sql"), "utf8"));
+await db.exec(readFileSync(join(ROOT, "supabase/migrations/20261026000000_ai_studio_access_images.sql"), "utf8"));
 const images = await seed(db);
 
 // PGlite is a single connection, so requests run one at a time.
@@ -306,6 +307,31 @@ async function handleTable(req, res, name, url, claims) {
   return send(res, 405, { message: "method not allowed" });
 }
 const stored = new Map(); // storage path -> { bytes, type }
+
+// A stand-in for the Gemini API (GEMINI_API_BASE=http://localhost:54399/gemini/models).
+// Tests switch its behaviour with POST /__debug/gemini {"mode": "ok" | "quota" | "overloaded"}
+// and read every prompt it received from GET /__debug/gemini-calls.
+let geminiMode = "ok";
+const geminiCalls = [];
+function geminiReply(body) {
+  if (geminiMode === "quota") {
+    return [429, { error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "You exceeded your current quota, please check your plan and billing details." } }];
+  }
+  if (geminiMode === "overloaded") {
+    return [503, { error: { code: 503, status: "UNAVAILABLE", message: "This model is currently experiencing high demand." } }];
+  }
+  const prompt = body.contents?.[0]?.parts?.find((p) => p.text)?.text ?? "";
+  const json = body.generationConfig?.responseMimeType === "application/json";
+  const n = /JSON array of 8/.test(prompt) ? 8 : 4;
+  const text = json
+    ? JSON.stringify(Array.from({ length: n }, (_, i) => `mock caption ${i + 1} (${Date.now() % 100000})`))
+    : "1. a laptop\n2. a coffee cup\n3. someone asleep";
+  return [200, {
+    candidates: [{ content: { parts: [{ text }] } }],
+    modelVersion: "mock-gemini",
+    usageMetadata: { promptTokenCount: 120, candidatesTokenCount: 40 },
+  }];
+}
 const deletedPaths = [];
 
 createServer(async (req, res) => {
@@ -372,41 +398,66 @@ createServer(async (req, res) => {
     }
 
     // --- Storage ------------------------------------------------------------
-    const pub = path.match(/^\/storage\/v1\/object\/public\/generations\/(.+)$/);
+    const pub = path.match(/^\/storage\/v1\/object\/public\/(generations|images)\/(.+)$/);
     if (pub && req.method === "GET") {
-      const key = decodeURIComponent(pub[1]);
+      const key = `${pub[1]}/${decodeURIComponent(pub[2])}`;
       const file = stored.get(key) ?? (images.has(key) ? { bytes: images.get(key), type: "image/png" } : null);
       if (!file) return send(res, 404, { message: "Object not found" });
       return send(res, 200, file.bytes, { "Content-Type": file.type });
     }
-    const upload = path.match(/^\/storage\/v1\/object\/generations\/(.+)$/);
+    const upload = path.match(/^\/storage\/v1\/object\/(generations|images)\/(.+)$/);
     if (upload && req.method === "POST") {
-      const key = decodeURIComponent(upload[1]);
+      const [bucket, name] = [upload[1], decodeURIComponent(upload[2])];
       const bytes = await readBody(req);
       try {
         await asCaller(claims, (tx) =>
-          tx.query(`insert into storage.objects (bucket_id, name, owner) values ('generations', $1, auth.uid())`, [key])
+          tx.query(`insert into storage.objects (bucket_id, name, owner) values ($1, $2, auth.uid())`, [bucket, name])
         );
       } catch (error) {
         return send(res, 403, { statusCode: "403", error: "Unauthorized", message: error.message });
       }
-      stored.set(key, { bytes, type: req.headers["content-type"] ?? "application/octet-stream" });
-      return send(res, 200, { Key: `generations/${key}`, Id: key });
+      stored.set(`${bucket}/${name}`, { bytes, type: req.headers["content-type"] ?? "application/octet-stream" });
+      return send(res, 200, { Key: `${bucket}/${name}`, Id: name });
     }
-    if (path === "/storage/v1/object/generations" && req.method === "DELETE") {
+    const remove = path.match(/^\/storage\/v1\/object\/(generations|images)$/);
+    if (remove && req.method === "DELETE") {
+      const bucket = remove[1];
       const { prefixes = [] } = JSON.parse((await readBody(req)).toString() || "{}");
       const result = await asCaller(claims, (tx) =>
-        tx.query(`delete from storage.objects where bucket_id = 'generations' and name = any($1::text[]) returning name`, [
+        tx.query(`delete from storage.objects where bucket_id = $1 and name = any($2::text[]) returning name`, [
+          bucket,
           prefixes,
         ])
       );
       for (const { name } of result.rows) {
-        stored.delete(name);
-        images.delete(name);
-        deletedPaths.push(name);
+        stored.delete(`${bucket}/${name}`);
+        images.delete(`${bucket}/${name}`);
+        deletedPaths.push(bucket === "generations" ? name : `${bucket}/${name}`);
       }
       return send(res, 200, result.rows.map(({ name }) => ({ name })));
     }
+
+    // --- Gemini stand-in ------------------------------------------------------
+    const gem = path.match(/^\/gemini\/models\/([A-Za-z0-9._-]+):generateContent$/);
+    if (gem && req.method === "POST") {
+      const body = JSON.parse((await readBody(req)).toString() || "{}");
+      const parts = body.contents?.[0]?.parts ?? [];
+      geminiCalls.push({
+        model: gem[1],
+        key: req.headers["x-goog-api-key"] ?? null,
+        prompt: parts.find((p) => p.text)?.text ?? "",
+        image: parts.some((p) => p.inline_data),
+        config: body.generationConfig ?? {},
+        mode: geminiMode,
+      });
+      const [status, reply] = geminiReply(body);
+      return send(res, status, reply);
+    }
+    if (path === "/__debug/gemini" && req.method === "POST") {
+      geminiMode = JSON.parse((await readBody(req)).toString()).mode;
+      return send(res, 200, { mode: geminiMode });
+    }
+    if (path === "/__debug/gemini-calls") return send(res, 200, geminiCalls);
 
     // --- Test introspection (owner access; local only) ----------------------
     if (path === "/__debug/query" && req.method === "POST") {

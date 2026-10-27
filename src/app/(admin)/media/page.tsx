@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { formatDate, formatNumber } from "@/lib/format";
 import { dateOrNull, oneOf, pageNumber, param, textOrNull, uuidOrNull, type SearchParams } from "@/lib/validate";
 
-export const metadata: Metadata = { title: "Media" };
+export const metadata: Metadata = { title: "Posts & AI media" };
 
 const POST_SORTS = ["newest", "oldest", "popular", "score"] as const;
 const CAPTION_SORTS = ["newest", "oldest", "score", "lowest", "popular"] as const;
@@ -26,6 +26,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
   const deleted = param(sp, "deleted") === "1";
 
   const postType = oneOf(param(sp, "type"), ["", "human", "ai_only"] as const, "");
+  const source = oneOf(param(sp, "source"), ["", "upload", "ai", "library"] as const, "");
   const captionType = oneOf(param(sp, "type"), ["", "ai", "human"] as const, "");
   const sort =
     view === "posts"
@@ -43,6 +44,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
       from,
       to,
       type: view === "posts" ? postType : captionType,
+      source: view === "posts" ? source : null,
       sort,
       ...overrides,
     };
@@ -90,6 +92,16 @@ export default async function MediaPage(props: PageProps<"/media">) {
       <Field label="To">
         <input type="date" name="to" defaultValue={to ?? ""} className={fieldClass} />
       </Field>
+      {view === "posts" && (
+        <Field label="Photo source">
+          <select name="source" defaultValue={source} className={fieldClass}>
+            <option value="">Any</option>
+            <option value="upload">Uploaded by a student</option>
+            <option value="ai">AI-generated photo</option>
+            <option value="library">From the image library</option>
+          </select>
+        </Field>
+      )}
       <Field label="Caption type">
         {view === "posts" ? (
           <select name="type" defaultValue={postType} className={fieldClass}>
@@ -129,8 +141,8 @@ export default async function MediaPage(props: PageProps<"/media">) {
   return (
     <>
       <PageHeader
-        title="Media"
-        description="Every photo and caption in Morningside Memes. Open a post to edit, generate, or delete."
+        title="Posts & AI media"
+        description="Every photo and the AI captions written for it, plus the human captions they battled. Filter to AI-generated photos, open a post to see which prompt chain wrote its captions, regenerate, edit, or delete."
         actions={
           <>
             {tabs}
@@ -160,6 +172,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
             p_sort: sort,
             p_limit: POSTS_PAGE,
             p_offset: (page - 1) * POSTS_PAGE,
+            p_image_source: source || null,
           })}
           page={page}
           href={(p) => qs({ page: String(p) })}
@@ -205,10 +218,19 @@ function PostsGrid({
             >
               <div className="relative">
                 <Thumb src={imageUrl(m.image_path)} alt={m.context ?? ""} className="aspect-square w-full rounded-[18px]" />
-                {m.human_captions > 0 && (
-                  <span className="absolute left-2 top-2 glass rounded-full px-2 py-0.5 text-[10px] font-semibold text-ink">
-                    ⚔️ Battle
-                  </span>
+                <span className="absolute left-2 top-2 flex flex-wrap gap-1">
+                  {m.human_captions > 0 && (
+                    <span className="glass rounded-full px-2 py-0.5 text-[10px] font-semibold text-ink">⚔️ Battle</span>
+                  )}
+                  {m.image_source === "ai" && (
+                    <span className="rounded-full bg-[#ffe8f3] px-2 py-0.5 text-[10px] font-semibold text-ai-ink">🎨 AI photo</span>
+                  )}
+                  {m.source_image_id && (
+                    <span className="rounded-full bg-butter px-2 py-0.5 text-[10px] font-semibold text-butter-ink">🖼️ Library</span>
+                  )}
+                </span>
+                {m.chain_slug && (
+                  <span className="absolute bottom-2 right-2 rounded-full bg-ink/75 px-2 py-0.5 font-mono text-[10px] text-white">{m.chain_slug}</span>
                 )}
               </div>
               <div className="p-3">

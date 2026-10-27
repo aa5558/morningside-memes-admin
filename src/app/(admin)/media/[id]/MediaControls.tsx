@@ -5,6 +5,7 @@ import {
   deleteCaption,
   deletePost,
   generateMoreCaptions,
+  promoteToExample,
   updateCaption,
   updateContext,
   type ActionResult,
@@ -33,14 +34,18 @@ export function CaptionActions({
   text,
   editable,
   votes,
+  scene,
 }: {
   captionId: string;
   generationId: string;
   text: string;
   editable: boolean;
   votes: number;
+  scene: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [sceneDraft, setSceneDraft] = useState(scene);
   const [draft, setDraft] = useState(text);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [pending, start] = useTransition();
@@ -94,9 +99,52 @@ export function CaptionActions({
     );
   }
 
+  if (promoting) {
+    return (
+      <form
+        className="mt-2 rounded-[16px] bg-background p-3 ring-1 ring-line"
+        onSubmit={(e) => {
+          e.preventDefault();
+          start(async () => {
+            const r = await promoteToExample(captionId, generationId, sceneDraft);
+            setResult(r);
+            if (!r.error) setPromoting(false);
+          });
+        }}
+      >
+        <label htmlFor={`scene-${captionId}`} className="text-xs font-medium text-muted">
+          Describe the photo for the model (it can&apos;t see this one)
+        </label>
+        <textarea
+          id={`scene-${captionId}`}
+          value={sceneDraft}
+          onChange={(e) => setSceneDraft(e.target.value)}
+          minLength={3}
+          maxLength={300}
+          rows={2}
+          autoFocus
+          placeholder="e.g. A student asleep on a pile of books in Butler"
+          className="mt-1 w-full rounded-[14px] border border-[rgba(22,38,61,0.12)] bg-white px-3 py-2 text-sm outline-none focus:border-sky focus:ring-4 focus:ring-sky/25"
+        />
+        <div className="mt-2 flex gap-2">
+          <button type="submit" disabled={pending || sceneDraft.trim().length < 3} className="btn btn-primary btn-sm">
+            {pending ? "Saving…" : "Save as example"}
+          </button>
+          <button type="button" onClick={() => setPromoting(false)} className={smallBtn}>
+            Cancel
+          </button>
+        </div>
+        <Message result={result} />
+      </form>
+    );
+  }
+
   return (
     <div>
       <div className="mt-1.5 flex gap-1">
+        <button type="button" onClick={() => setPromoting(true)} className={smallBtn}>
+          ★ Save as example
+        </button>
         {editable && (
           <button type="button" onClick={() => setEditing(true)} className={smallBtn}>
             Edit
@@ -171,20 +219,37 @@ export function ContextEditor({ generationId, context }: { generationId: string;
   );
 }
 
-export function GenerateCaptions({ generationId }: { generationId: string }) {
+export function GenerateCaptions({ generationId, chains }: { generationId: string; chains: { id: string; name: string }[] }) {
   const [result, setResult] = useState<ActionResult | null>(null);
+  const [chain, setChain] = useState("");
   const [pending, start] = useTransition();
   return (
-    <div>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => start(async () => setResult(await generateMoreCaptions(generationId)))}
-        className="btn btn-ice btn-sm"
-      >
-        <span aria-hidden>✨</span>
-        {pending ? "Asking Gemini…" : "Generate more AI captions"}
-      </button>
+    <div className="flex flex-col items-end">
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <select
+          aria-label="Prompt chain"
+          value={chain}
+          onChange={(e) => setChain(e.target.value)}
+          disabled={pending}
+          className="rounded-full border border-[rgba(22,38,61,0.12)] bg-white px-3 py-1.5 text-xs outline-none focus:border-sky"
+        >
+          <option value="">Chain: use the mix</option>
+          {chains.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => start(async () => setResult(await generateMoreCaptions(generationId, chain || null)))}
+          className="btn btn-ice btn-sm"
+        >
+          <span aria-hidden>✨</span>
+          {pending ? "Running the chain…" : "Generate more"}
+        </button>
+      </div>
       <Message result={result} />
     </div>
   );

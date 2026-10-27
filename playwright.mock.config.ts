@@ -28,7 +28,12 @@ export default defineConfig({
       env: {
         SUPABASE_URL: "http://localhost:54399",
         SUPABASE_ANON_KEY: "mock-anon-key",
-        GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? "",
+        // By default captions come from the Gemini stand-in in the mock
+        // (deterministic, no quota). REAL_GEMINI=1 calls the real API with
+        // GEMINI_API_KEY from .env.local instead.
+        ...(process.env.REAL_GEMINI === "1"
+          ? { GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? "" }
+          : { GEMINI_API_KEY: "mock-gemini-key", GEMINI_API_BASE: "http://localhost:54399/gemini/models" }),
       },
     },
   ],

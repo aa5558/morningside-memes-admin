@@ -137,7 +137,7 @@ export async function seed(db) {
     const id = uuid("c0000000", g + 1);
     const path = `${owner.id}/${uuid("d0000000", g + 1)}.png`;
     const created = daysAgo(Math.floor((g / 30) * 44) + (g % 3));
-    images.set(path, png(g + 7));
+    images.set(`generations/${path}`, png(g + 7));
     await db.query(`insert into storage.objects (bucket_id, name, owner) values ('generations', $1, $2)`, [path, owner.id]);
     await db.query(
       `insert into public.generations (id, user_id, image_path, context, vibe, daily_prompt, model, prompt, created_at, challenge_date)
@@ -185,6 +185,67 @@ export async function seed(db) {
         `insert into public.caption_votes (user_id, caption_id, vote, created_at, updated_at) values ($1, $2, $3, $4, $4)`,
         [u.id, c.id, up ? 1 : -1, cast]
       );
+    }
+  }
+
+  // Image library: today's Daily Drop, a past one, an undated one, and a
+  // drop scheduled for tomorrow (which only admins may see).
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+  const shift = (d) => new Date(Date.parse(today) + d * 86_400_000).toISOString().slice(0, 10);
+  const library = [
+    ["Low Steps, first snow", "Students sitting on snowy Low Steps in puffer jackets", ["campus", "snow"], today],
+    ["Bodega cat on duty", "An orange cat asleep on a stack of newspapers by a register", ["nyc", "cats"], shift(-2)],
+    ["Butler at 2am", "Rows of students at laptops in a library reading room late at night", ["campus", "finals"], null],
+    ["Tomorrow's surprise", "A pigeon standing on a subway bench", ["nyc"], shift(1)],
+  ];
+  for (const [i, [title, alt, tags, day]] of library.entries()) {
+    const id = uuid("f0000000", i + 1);
+    const file = `${uuid("f1000000", i + 1)}.png`;
+    images.set(`images/${file}`, png(100 + i));
+    await db.query(`insert into storage.objects (bucket_id, name) values ('images', $1)`, [file]);
+    await db.query(
+      `insert into public.images (id, storage_path, title, alt_text, tags, mime_type, byte_size, featured_on, uploaded_by)
+       values ($1, $2, $3, $4, $5, 'image/png', 2048, $6, $7)`,
+      [id, file, title, alt, tags, day, ADMIN_ID]
+    );
+  }
+
+  // Logged pipeline runs for the most recent posts, as if each had been
+  // captioned by a chain.
+  const recent = (await db.query(`select id, user_id, vibe, created_at from public.generations order by created_at desc limit 12`)).rows;
+  const chains = (await db.query(`select c.id, c.slug, array_agg(s.id order by s.position) steps from public.prompt_chains c join public.prompt_chain_steps s on s.chain_id = c.id group by c.id order by c.slug`)).rows;
+  for (const [i, g] of recent.entries()) {
+    const chain = chains[i % chains.length];
+    const failed = i === 5;
+    const started = new Date(new Date(g.created_at).getTime() - 9000).toISOString();
+    const req = (
+      await db.query(
+        `insert into public.generation_requests (user_id, source, status, chain_id, chain_slug, vibe, generation_id, caption_ids, error_message, started_at, finished_at)
+         values ($1, 'main_app', $2, $3, $4, $5, $6,
+                 case when $2 = 'succeeded' then (select coalesce(array_agg(id), '{}') from public.captions where generation_id = $6 and author_type = 'ai') else '{}' end,
+                 $7, $8, $8::timestamptz + interval '8 seconds') returning id`,
+        [g.user_id, failed ? "failed" : "succeeded", chain.id, chain.slug, g.vibe, failed ? null : g.id, failed ? "Step 1 (Write captions) failed: The model is overloaded." : null, started]
+      )
+    ).rows[0].id;
+    for (const [n, step] of chain.steps.entries()) {
+      const last = n === chain.steps.length - 1;
+      await db.query(
+        `insert into public.llm_responses (request_id, step_id, step_position, step_name, model_id, model_key, provider_slug, prompt_text, response_text, status, http_status, error_message, latency_ms, input_tokens, output_tokens, created_at)
+         select $1, s.id, s.position, s.name, m.id, m.model_key, 'google-gemini', s.instructions, $2, $3, $4, $5, $6, 1290, $7, $8::timestamptz
+         from public.prompt_chain_steps s join public.llm_models m on m.id = s.model_id where s.id = $9`,
+        [
+          req,
+          failed ? null : last ? JSON.stringify(AI_LINES.slice(0, 4)) : "1. Laptop glow\n2. Empty coffee cups\n3. Someone asleep",
+          failed ? "error" : "ok",
+          failed ? 503 : 200,
+          failed ? "The model is overloaded." : null,
+          2400 + n * 1800 + i * 37,
+          failed ? 0 : 310 + n * 40,
+          new Date(new Date(started).getTime() + (n + 1) * 2500).toISOString(),
+          step,
+        ]
+      );
+      if (failed) break;
     }
   }
 

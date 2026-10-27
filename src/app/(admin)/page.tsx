@@ -4,7 +4,8 @@ import { AuditList, CaptionList, HumanVsAi, RecentActivity } from "@/components/
 import { Card, PageHeader, RangeTabs, StatCard } from "@/components/ui";
 import { getDashboardStats, listAudit } from "@/lib/admin-data";
 import { requireAdmin } from "@/lib/auth";
-import { formatNumber, formatPercent } from "@/lib/format";
+import { formatCompact, formatNumber, formatPercent, timeAgo } from "@/lib/format";
+import { getAiStats } from "@/lib/studio-data";
 import { oneOf } from "@/lib/validate";
 
 export default async function OverviewPage(props: PageProps<"/">) {
@@ -12,7 +13,11 @@ export default async function OverviewPage(props: PageProps<"/">) {
   const searchParams = await props.searchParams;
   const days = Number(oneOf(searchParams.days, ["7", "30", "90"] as const, "30"));
 
-  const [stats, audit] = await Promise.all([getDashboardStats(supabase, days), listAudit(supabase, 6)]);
+  const [stats, audit, ai] = await Promise.all([
+    getDashboardStats(supabase, days),
+    listAudit(supabase, 6),
+    getAiStats(supabase, days),
+  ]);
   const { totals, period } = stats;
   const daily = stats.daily.map((d) => ({ ...d, votes: d.upvotes + d.downvotes }));
 
@@ -85,6 +90,55 @@ export default async function OverviewPage(props: PageProps<"/">) {
               },
             ]}
           />
+        </Card>
+
+        <Card
+          className="xl:col-span-2"
+          title="AI usage"
+          description={ai.last_request_at ? `Caption pipeline, last ${days} days · last run ${timeAgo(ai.last_request_at)}` : `Caption pipeline, last ${days} days`}
+          action={
+            <Link href="/studio" className="text-xs font-medium text-human hover:underline">
+              AI Studio →
+            </Link>
+          }
+        >
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["Runs", formatNumber(ai.requests), `${formatNumber(ai.sources.main_app ?? 0)} from the app`],
+              ["Success rate", formatPercent(ai.succeeded, ai.requests), `${formatNumber(ai.failed)} failed`],
+              ["Avg call", ai.avg_latency_ms === null ? "—" : `${(ai.avg_latency_ms / 1000).toFixed(1)}s`, `${formatNumber(ai.calls)} model calls`],
+              ["Tokens", formatCompact(ai.input_tokens + ai.output_tokens), `${formatCompact(ai.output_tokens)} output`],
+            ].map(([label, value, hint]) => (
+              <div key={label} className="rounded-[18px] bg-background px-3 py-2.5 ring-1 ring-line">
+                <p className="text-[11px] font-medium text-muted">{label}</p>
+                <p className="display text-2xl text-ink">{value}</p>
+                <p className="text-[11px] text-subtle">{hint}</p>
+              </div>
+            ))}
+          </div>
+          {ai.requests === 0 ? (
+            <p className="rounded-[18px] bg-background p-4 text-sm text-muted ring-1 ring-line">
+              No caption runs logged in this range yet. Runs are recorded from the moment the AI Studio migration is applied.
+            </p>
+          ) : (
+            <MetricExplorer
+              data={ai.daily}
+              metrics={[
+                {
+                  key: "runs",
+                  label: "Runs",
+                  total: ai.requests,
+                  description: "Caption pipeline runs per day, by outcome.",
+                  kind: "bar",
+                  stacked: true,
+                  series: [
+                    { key: "succeeded", label: "Succeeded", color: "var(--series-1)" },
+                    { key: "failed", label: "Failed", color: "var(--series-down)" },
+                  ],
+                },
+              ]}
+            />
+          )}
         </Card>
 
         <Card title="Humans vs. Gemini" description="All-time leaderboard">

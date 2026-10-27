@@ -147,6 +147,41 @@ const AUDIT_LABEL: Record<string, string> = {
   edit_post: "edited a post's context",
   delete_caption: "deleted a caption",
   delete_post: "deleted a post",
+  update_chain_mix: "changed the prompt chain mix",
+  create_term: "added a term",
+  update_term: "edited a term",
+  delete_term: "deleted a term",
+  create_ai_example: "added an AI example",
+  update_ai_example: "edited an AI example",
+  delete_ai_example: "deleted an AI example",
+  create_llm_model: "added a model",
+  update_llm_model: "edited a model",
+  delete_llm_model: "deleted a model",
+  create_llm_provider: "added a provider",
+  update_llm_provider: "edited a provider",
+  delete_llm_provider: "deleted a provider",
+  create_signup_domain: "allowed a signup domain",
+  update_signup_domain: "edited a signup domain",
+  delete_signup_domain: "removed a signup domain",
+  create_whitelisted_email: "whitelisted an email",
+  update_whitelisted_email: "edited a whitelisted email",
+  delete_whitelisted_email: "removed a whitelisted email",
+  update_signup_settings: "changed the signup gate",
+  create_image: "uploaded a library image",
+  update_image: "edited a library image",
+  delete_image: "deleted a library image",
+};
+
+const TARGET_PAGES: Record<string, string> = {
+  prompt_chain_mix: "/studio",
+  term: "/terms",
+  ai_example: "/studio/examples",
+  llm_model: "/models",
+  llm_provider: "/models",
+  signup_domain: "/access",
+  whitelisted_email: "/access",
+  signup_settings: "/access",
+  image: "/images",
 };
 
 export function auditLabel(action: string) {
@@ -155,6 +190,7 @@ export function auditLabel(action: string) {
 
 export function auditLink(row: Pick<AuditRow, "action" | "target_type" | "target_id" | "details">) {
   if (row.action === "delete_post") return null;
+  if (TARGET_PAGES[row.target_type]) return TARGET_PAGES[row.target_type];
   const generationId =
     row.target_type === "generation" ? row.target_id : (row.details.generation_id as string | undefined);
   return generationId ? `/media/${generationId}` : null;

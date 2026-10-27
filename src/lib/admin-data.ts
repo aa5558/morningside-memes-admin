@@ -181,6 +181,8 @@ export type MediaRow = {
   votes: number;
   upvotes: number;
   best_score: number | null;
+  source_image_id: string | null;
+  chain_slug: string | null;
   total_count: number;
 };
 
@@ -325,6 +327,7 @@ export async function listMedia(
     p_sort: string;
     p_limit: number;
     p_offset: number;
+    p_image_source: string | null;
   }
 ) {
   return unwrap<MediaRow[]>(await supabase.rpc("admin_list_media", args), "media") ?? [];

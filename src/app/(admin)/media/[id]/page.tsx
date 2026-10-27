@@ -8,8 +8,12 @@ import { MAIN_APP_URL, getMedia, imageUrl, type MediaDetail } from "@/lib/admin-
 import { requireAdmin } from "@/lib/auth";
 import { VIBES, isVibe } from "@/lib/captions";
 import { formatDate, formatDateTime, timeAgo } from "@/lib/format";
+import { listChains } from "@/lib/studio-data";
 import { isUuid } from "@/lib/validate";
 import { CaptionActions, ContextEditor, DeletePost, GenerateCaptions } from "./MediaControls";
+
+// Server actions on this page run a prompt chain, which can take a while.
+export const maxDuration = 60;
 
 export const metadata: Metadata = { title: "Post" };
 
@@ -19,8 +23,9 @@ export default async function MediaDetailPage(props: PageProps<"/media/[id]">) {
   if (!isUuid(id)) notFound();
   const searchParams = await props.searchParams;
 
-  const post = await getMedia(supabase, id);
+  const [post, allChains] = await Promise.all([getMedia(supabase, id), listChains(supabase)]);
   if (!post) notFound();
+  const chains = allChains.filter((c) => c.runnable).map((c) => ({ id: c.id, name: c.name }));
 
   const votes = post.captions.reduce((sum, c) => sum + c.upvotes + c.downvotes, 0);
   const ai = post.captions.filter((c) => c.author_type === "ai");
@@ -91,12 +96,12 @@ export default async function MediaDetailPage(props: PageProps<"/media/[id]">) {
           <Card
             title={`Gemini captions (${ai.length})`}
             description="Edit or delete any AI caption. Every change is logged."
-            action={<GenerateCaptions generationId={post.id} />}
+            action={<GenerateCaptions generationId={post.id} chains={chains} />}
           >
-            <CaptionTable captions={ai} generationId={post.id} editable />
+            <CaptionTable captions={ai} generationId={post.id} editable scene={post.context ?? ""} />
           </Card>
           <Card title={`Human captions (${human.length})`} description="Written by students. Admins can delete these, but not reword them.">
-            <CaptionTable captions={human} generationId={post.id} editable={false} />
+            <CaptionTable captions={human} generationId={post.id} editable={false} scene={post.context ?? ""} />
           </Card>
           <Card title="Change history" description="Admin edits to this post">
             {post.history.length ? (
@@ -148,10 +153,13 @@ function CaptionTable({
   captions,
   generationId,
   editable,
+  scene,
 }: {
   captions: MediaDetail["captions"];
   generationId: string;
   editable: boolean;
+  // Starting text for "Save as example": what the photo shows.
+  scene: string;
 }) {
   if (!captions.length) return <p className="text-sm text-muted">None.</p>;
   return (
@@ -193,6 +201,7 @@ function CaptionTable({
               text={c.text}
               editable={editable}
               votes={c.upvotes + c.downvotes}
+              scene={scene}
             />
           </li>
         ))}
