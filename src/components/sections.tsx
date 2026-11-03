@@ -170,10 +170,20 @@ const AUDIT_LABEL: Record<string, string> = {
   create_image: "uploaded a library image",
   update_image: "edited a library image",
   delete_image: "deleted a library image",
+  // From AFTERTHOUGHT, the prompt-chain studio.
+  create_prompt_chain: "created a prompt chain",
+  update_prompt_chain: "edited a prompt chain",
+  delete_prompt_chain: "deleted a prompt chain",
+  create_prompt_chain_step: "added a chain step",
+  update_prompt_chain_step: "edited a chain step",
+  delete_prompt_chain_step: "deleted a chain step",
+  reorder_prompt_chain_steps: "reordered a chain's steps",
 };
 
 const TARGET_PAGES: Record<string, string> = {
   prompt_chain_mix: "/studio",
+  prompt_chain: "/studio",
+  prompt_chain_step: "/studio",
   term: "/terms",
   ai_example: "/studio/examples",
   llm_model: "/models",

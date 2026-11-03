@@ -52,7 +52,7 @@ export async function listChains(supabase: SupabaseClient) {
 export type RequestRow = {
   id: string;
   status: "running" | "succeeded" | "failed";
-  source: "main_app" | "admin";
+  source: "main_app" | "admin" | "studio";
   chain_id: string | null;
   chain_slug: string;
   chain_name: string | null;

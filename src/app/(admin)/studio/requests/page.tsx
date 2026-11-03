@@ -8,6 +8,8 @@ import { listChains, listRequests } from "@/lib/studio-data";
 import { oneOf, pageNumber, param, uuidOrNull } from "@/lib/validate";
 import { seconds, StatusPill } from "@/components/studio";
 
+const SOURCE_LABEL: Record<string, string> = { main_app: "main app", admin: "admin console", studio: "AFTERTHOUGHT" };
+
 export const metadata: Metadata = { title: "Generation runs" };
 
 const PAGE_SIZE = 30;
@@ -16,7 +18,7 @@ export default async function RequestsPage(props: PageProps<"/studio/requests">)
   const { supabase } = await requireAdmin("/studio/requests");
   const sp = await props.searchParams;
   const status = oneOf(param(sp, "status"), ["", "running", "succeeded", "failed"] as const, "");
-  const source = oneOf(param(sp, "source"), ["", "main_app", "admin"] as const, "");
+  const source = oneOf(param(sp, "source"), ["", "main_app", "admin", "studio"] as const, "");
   const chain = uuidOrNull(param(sp, "chain"));
   const page = pageNumber(param(sp, "page"));
 
@@ -69,6 +71,7 @@ export default async function RequestsPage(props: PageProps<"/studio/requests">)
           <select name="source" defaultValue={source} className={fieldClass}>
             <option value="">Any</option>
             <option value="main_app">Main app</option>
+            <option value="studio">AFTERTHOUGHT</option>
             <option value="admin">Admin console</option>
           </select>
         </Field>
@@ -113,7 +116,7 @@ export default async function RequestsPage(props: PageProps<"/studio/requests">)
                     </td>
                     <td className="px-3 py-2.5">
                       {r.user_name ?? "Deleted user"}
-                      <span className="block text-xs text-subtle">{r.source === "admin" ? "admin console" : "main app"}</span>
+                      <span className="block text-xs text-subtle">{SOURCE_LABEL[r.source] ?? r.source}</span>
                     </td>
                     <td className="tabular px-3 py-2.5 text-right">{r.calls}</td>
                     <td className="tabular px-3 py-2.5 text-right">{r.tokens ? formatNumber(r.tokens) : "—"}</td>

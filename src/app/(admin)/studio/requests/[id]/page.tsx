@@ -27,7 +27,7 @@ export default async function RequestPage(props: PageProps<"/studio/requests/[id
         title={run.chain_name ?? run.chain_slug}
         description={
           <>
-            <StatusPill status={run.status} /> Run by {run.user_name ?? "a deleted user"} from the {run.source === "admin" ? "admin console" : "main app"} ·{" "}
+            <StatusPill status={run.status} /> Run by {run.user_name ?? "a deleted user"} from {run.source === "admin" ? "the admin console" : run.source === "studio" ? "AFTERTHOUGHT" : "the main app"} ·{" "}
             {formatDateTime(run.started_at)} · {seconds(totalMs)} total
           </>
         }
