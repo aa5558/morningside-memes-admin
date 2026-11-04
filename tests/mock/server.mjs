@@ -75,6 +75,14 @@ for (const f of [
 }
 await db.exec(readFileSync(join(ROOT, "supabase/migrations/20261019000000_admin_dashboard.sql"), "utf8"));
 await db.exec(readFileSync(join(ROOT, "supabase/migrations/20261026000000_ai_studio_access_images.sql"), "utf8"));
+// The AFTERTHOUGHT migrations change shared AI functions (log_llm_response,
+// caption_model_options) that the main and admin apps call.
+const STUDIO_MIGRATIONS = process.env.STUDIO_MIGRATIONS ?? join(ROOT, "../afterthought-ai-studio/supabase/migrations");
+for (const f of ["20261103000000_afterthought_studio.sql", "20261104000000_reliable_generation.sql"]) {
+  const path = join(STUDIO_MIGRATIONS, f);
+  if (!existsSync(path)) throw new Error(`Missing AFTERTHOUGHT migration: ${path}`);
+  await db.exec(readFileSync(path, "utf8"));
+}
 const images = await seed(db);
 
 // PGlite is a single connection, so requests run one at a time.
@@ -312,8 +320,11 @@ const stored = new Map(); // storage path -> { bytes, type }
 // Tests switch its behaviour with POST /__debug/gemini {"mode": "ok" | "quota" | "overloaded"}
 // and read every prompt it received from GET /__debug/gemini-calls.
 let geminiMode = "ok";
+// Per-model overrides, e.g. {"gemini-flash-latest": "overloaded"}.
+let geminiModelModes = {};
 const geminiCalls = [];
-function geminiReply(body) {
+function geminiReply(body, model) {
+  const geminiMode = geminiModelModes[model] ?? globalThis.__geminiMode ?? "ok";
   if (geminiMode === "quota") {
     return [429, { error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "You exceeded your current quota, please check your plan and billing details." } }];
   }
@@ -450,12 +461,18 @@ createServer(async (req, res) => {
         config: body.generationConfig ?? {},
         mode: geminiMode,
       });
-      const [status, reply] = geminiReply(body);
+      globalThis.__geminiMode = geminiMode;
+      const [status, reply] = geminiReply(body, gem[1]);
       return send(res, status, reply);
     }
     if (path === "/__debug/gemini" && req.method === "POST") {
-      geminiMode = JSON.parse((await readBody(req)).toString()).mode;
-      return send(res, 200, { mode: geminiMode });
+      const { mode, model } = JSON.parse((await readBody(req)).toString());
+      if (model) geminiModelModes[model] = mode;
+      else {
+        geminiMode = mode;
+        geminiModelModes = {};
+      }
+      return send(res, 200, { mode, model: model ?? null });
     }
     if (path === "/__debug/gemini-calls") return send(res, 200, geminiCalls);
 

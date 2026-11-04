@@ -13,7 +13,7 @@ import { isUuid } from "@/lib/validate";
 import { CaptionActions, ContextEditor, DeletePost, GenerateCaptions } from "./MediaControls";
 
 // Server actions on this page run a prompt chain, which can take a while.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export const metadata: Metadata = { title: "Post" };
 

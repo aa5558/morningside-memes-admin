@@ -7,7 +7,7 @@ import { VIBES, getDailyPrompt } from "@/lib/captions";
 import { CreatePostForm } from "./CreatePostForm";
 
 // Server actions on this page run a prompt chain, which can take a while.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export const metadata: Metadata = { title: "New AI post" };
 

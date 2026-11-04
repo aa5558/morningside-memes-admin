@@ -1,12 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildCaptionPrompt, VIBES, type Vibe } from "@/lib/captions";
 import { generateCaptionsWithGemini } from "@/lib/gemini";
+import { candidatesFor, generate, prepareImage, type ModelOption } from "@/lib/reliable-gemini";
 
 // The caption pipeline. The database decides which prompt chain runs (the
 // mix an admin sets in the AI Studio), which model each step uses, and which
 // terms and examples go into the prompts; this file runs the steps against
 // Gemini and logs every call. Shared with the main app: keep in sync with
 // hello-world-nextjs/src/lib/pipeline.ts.
+//
+// Every model call goes through reliable-gemini.ts: short per-attempt
+// timeouts, automatic failover to other Gemini models when one is
+// overloaded, and bounded retries, all inside RUN_BUDGET_MS. Nothing is
+// written to the post until captions exist, so retries can't duplicate a
+// post; each step is logged once, with every attempt behind it.
 //
 // If the AI Studio tables aren't there yet (migration not applied) or no
 // chain can run, it falls back to the original one-shot prompt, so posting
@@ -50,10 +57,11 @@ export type PipelineResult = {
   requestId: string | null;
 };
 
-// Shown when the model provider says we're out of quota (HTTP 429).
+// Shown when every model is out of quota (HTTP 429).
 export const QUOTA_MESSAGE =
   "The AI has hit its usage limit for now, so it can't write captions at the moment. Your photo wasn't posted. Try again later. In the meantime you can still caption and vote on other posts.";
-const BUSY_MESSAGE = "The AI is overloaded right now. Your photo wasn't posted. Give it a minute and try again.";
+const BUSY_MESSAGE =
+  "Every AI model we tried was overloaded, even after retrying, so we stopped. Your photo wasn't posted. Try again in a few minutes.";
 
 export class PipelineError extends Error {
   constructor(
@@ -64,90 +72,9 @@ export class PipelineError extends Error {
   }
 }
 
-// A key variable must look like FOO_API_KEY, so a provider record can never
-// make the server send some other secret to the model API.
-const KEY_VAR = /^[A-Z][A-Z0-9_]{0,50}_API_KEY$/;
-// Overridable only from server env, so tests can point at a local stand-in.
-const GEMINI_BASE = process.env.GEMINI_API_BASE ?? "https://generativelanguage.googleapis.com/v1beta/models";
-// A whole run must finish inside the 60s server function limit, with time
-// left to save the post; one call never gets more than CALL_TIMEOUT_MS.
-const RUN_BUDGET_MS = 48_000;
-const CALL_TIMEOUT_MS = 30_000;
-const MODEL_KEY = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/;
-
-type GeminiBody = {
-  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
-  modelVersion?: string;
-  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
-  error?: { message?: string };
-};
-
-async function callGemini(step: Step, prompt: string, input: PipelineInput, deadline: number) {
-  const key = KEY_VAR.test(step.api_key_env_var) ? process.env[step.api_key_env_var] : undefined;
-  if (!key) throw new Error(`${step.api_key_env_var} is not configured on this server.`);
-  if (!MODEL_KEY.test(step.model_key)) throw new Error("Invalid model key.");
-
-  const parts: object[] = [];
-  if (step.include_image) {
-    parts.push({ inline_data: { mime_type: input.mimeType, data: Buffer.from(input.image).toString("base64") } });
-  }
-  parts.push({ text: prompt });
-
-  const generationConfig: Record<string, unknown> = {};
-  if (step.temperature !== null) generationConfig.temperature = Number(step.temperature);
-  if (step.max_output_tokens) generationConfig.maxOutputTokens = step.max_output_tokens;
-  if (step.kind === "caption") {
-    generationConfig.responseMimeType = "application/json";
-    generationConfig.responseSchema = { type: "ARRAY", items: { type: "STRING" } };
-  }
-
-  const started = Date.now();
-  let response: Response | undefined;
-  // Gemini's free tier often answers 503 ("high demand") for a few seconds;
-  // retry twice while there's time left. 429 means a quota is used up, which
-  // won't clear in seconds, so it isn't retried.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const remaining = deadline - Date.now();
-    if (remaining < 2_000) throw new Error("Ran out of time waiting for the model.");
-    try {
-      response = await fetch(`${GEMINI_BASE}/${step.model_key}:generateContent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig }),
-        signal: AbortSignal.timeout(Math.min(CALL_TIMEOUT_MS, remaining)),
-      });
-    } catch (e) {
-      if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
-        throw new Error(`The model didn't answer within ${Math.round((Date.now() - started) / 1000)}s.`);
-      }
-      throw e;
-    }
-    if (response.status !== 503) break;
-    if (attempt < 2 && deadline - Date.now() > 6_000) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-    else break;
-  }
-  const body = (await response!.json().catch(() => ({}))) as GeminiBody;
-  const usage = body.usageMetadata ?? {};
-  const text = (body.candidates?.[0]?.content?.parts ?? [])
-    .filter((p) => !p.thought && p.text)
-    .map((p) => p.text)
-    .join("")
-    .trim();
-
-  return {
-    ok: response!.ok && text.length > 0,
-    text,
-    httpStatus: response!.status,
-    latencyMs: Date.now() - started,
-    inputTokens: usage.promptTokenCount ?? null,
-    outputTokens:
-      usage.candidatesTokenCount === undefined && usage.thoughtsTokenCount === undefined
-        ? null
-        : (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
-    error: response!.ok ? (text ? null : "Empty response") : (body.error?.message ?? `HTTP ${response!.status}`),
-    model: body.modelVersion ?? step.model_key,
-  };
-}
+// The whole run (all steps, retries and failovers) must finish well inside
+// the server function's 300s limit, with time left to save the post.
+const RUN_BUDGET_MS = 150_000;
 
 function parseCaptions(text: string, max: number) {
   let parsed: unknown;
@@ -196,10 +123,37 @@ export function templateVars(input: PipelineInput, plan?: Pick<Plan, "terms" | "
 class StepError extends Error {
   constructor(
     message: string,
-    readonly httpStatus: number
+    readonly failure: "quota" | "busy" | "rejected" | "bad_output" | null
   ) {
     super(message);
   }
+}
+
+// The Gemini models this server may fail over to (from the database).
+async function modelOptions(supabase: SupabaseClient): Promise<ModelOption[]> {
+  const { data, error } = await supabase.rpc("caption_model_options");
+  if (error) {
+    console.warn(JSON.stringify({ event: "model_options_unavailable", error: error.message }));
+    return [];
+  }
+  return (data ?? []) as ModelOption[];
+}
+
+// Logs one step. Older databases (before the reliability migration) don't
+// know p_model / p_attempts; then the step is logged the old way.
+async function logResponse(supabase: SupabaseClient, args: Record<string, unknown>) {
+  const { error } = await supabase.rpc("log_llm_response", args);
+  if (!error) return;
+  if (error.code === "PGRST202") {
+    const { p_model: _model, p_attempts: _attempts, ...old } = args;
+    void _model;
+    void _attempts;
+    const retry = await supabase.rpc("log_llm_response", old);
+    if (!retry.error) return;
+    console.error(JSON.stringify({ event: "log_llm_response_failed", error: retry.error.message }));
+    return;
+  }
+  console.error(JSON.stringify({ event: "log_llm_response_failed", error: error.message }));
 }
 
 async function legacy(input: PipelineInput): Promise<PipelineResult> {
@@ -244,6 +198,8 @@ export async function runCaptionPipeline(
 
   const plan = data as Plan;
   const deadline = Date.now() + RUN_BUDGET_MS;
+  const models = await modelOptions(supabase);
+  const photo = await prepareImage(input.image, input.mimeType);
   let previous = "";
   let finalPrompt = "";
   let model = "";
@@ -253,49 +209,72 @@ export async function runCaptionPipeline(
     for (const [index, step] of plan.steps.entries()) {
       const isLast = index === plan.steps.length - 1;
       const prompt = renderTemplate(step.instructions, templateVars(input, plan, previous));
-      let result: Awaited<ReturnType<typeof callGemini>>;
-      const callStarted = Date.now();
-      try {
-        result = await callGemini(step, prompt, input, deadline);
-      } catch (e) {
-        result = {
-          ok: false, text: "", httpStatus: 0, latencyMs: Date.now() - callStarted, inputTokens: null, outputTokens: null,
-          error: e instanceof Error ? e.message : "Request failed", model: step.model_key,
-        };
+      const parts: object[] = [];
+      if (step.include_image) parts.push({ inline_data: { mime_type: photo.mimeType, data: Buffer.from(photo.bytes).toString("base64") } });
+      parts.push({ text: prompt });
+      const generationConfig: Record<string, unknown> = {};
+      if (step.temperature !== null) generationConfig.temperature = Number(step.temperature);
+      if (step.max_output_tokens) generationConfig.maxOutputTokens = step.max_output_tokens;
+      if (step.kind === "caption") {
+        generationConfig.responseMimeType = "application/json";
+        generationConfig.responseSchema = { type: "ARRAY", items: { type: "STRING" } };
       }
+      // Leave the remaining steps a fair share of the budget.
+      const stepsLeft = plan.steps.length - index;
+      const budget = Math.max(20_000, Math.floor((deadline - Date.now()) / stepsLeft));
+      const primary: ModelOption = {
+        id: models.find((o) => o.model_key === step.model_key)?.id ?? `step:${step.model_key}`,
+        model_key: step.model_key,
+        api_key_env_var: step.api_key_env_var,
+        supports_vision: true,
+      };
+      const result = await generate({
+        candidates: candidatesFor(primary, models, step.include_image),
+        parts,
+        generationConfig,
+        validate: (text) => step.kind === "analyze" || parseCaptions(text, isLast ? 4 : 12).length > 0,
+        budgetMs: Math.min(budget, deadline - Date.now()),
+        label: `${models.length ? "caption" : "caption(no-fallback)"} ${plan.request_id.slice(0, 8)} step ${step.position}`,
+      });
       const parsed = step.kind === "caption" && result.ok ? parseCaptions(result.text, isLast ? 4 : 12) : [];
-      const ok = result.ok && (step.kind === "analyze" || parsed.length > 0);
 
-      await supabase.rpc("log_llm_response", {
+      await logResponse(supabase, {
         p_request: plan.request_id,
         p_step: step.id,
         p_prompt: prompt,
         p_response: result.text || null,
-        p_status: ok ? "ok" : "error",
+        p_status: result.ok ? "ok" : "error",
         p_http_status: result.httpStatus || null,
-        p_error: ok ? null : (result.error ?? "Unparseable response"),
+        p_error: result.ok ? null : (result.error ?? "unusable response").slice(0, 500),
         p_latency_ms: result.latencyMs,
         p_input_tokens: result.inputTokens,
         p_output_tokens: result.outputTokens,
+        // Only when a fallback answered; otherwise the step's model is logged.
+        p_model: result.model && result.model.model_key !== step.model_key ? result.model.id : null,
+        p_attempts: result.attempts.length ? result.attempts : null,
       });
 
-      if (!ok) {
-        throw new StepError(`Step ${step.position} (${step.name}) failed: ${result.error ?? "unparseable response"}`, result.httpStatus);
+      if (!result.ok) {
+        throw new StepError(`Step ${step.position} (${step.name}) failed: ${result.error ?? "unusable response"}`, result.failure);
       }
       previous = step.kind === "caption" ? parsed.map((c, i) => `${i + 1}. ${c}`).join("\n") : result.text;
       if (isLast) {
         captions = parsed;
         finalPrompt = prompt;
-        model = result.model;
+        model = result.model?.model_key ?? step.model_key;
       }
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : "Pipeline failed";
     await finishCaptionRequest(supabase, plan.request_id, false, message);
-    const status = e instanceof StepError ? e.httpStatus : 0;
+    const failure = e instanceof StepError ? e.failure : null;
     throw new PipelineError(
       message,
-      status === 429 ? QUOTA_MESSAGE : status === 503 ? BUSY_MESSAGE : "The AI couldn't caption that one. Your photo wasn't posted. Try again in a moment."
+      failure === "quota"
+        ? QUOTA_MESSAGE
+        : failure === "busy"
+          ? BUSY_MESSAGE
+          : "The AI couldn't caption that one. Your photo wasn't posted. Try again in a moment."
     );
   }
 
